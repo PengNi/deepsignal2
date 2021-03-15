@@ -78,10 +78,9 @@ def main_denoise(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(prog='deepsignal_plant',
-                                     description="detecting base modifications from Nanopore sequencing reads of "
-                                                 "plants, "
-                                                 "deepsignal_plant contains four modules:\n"
+    parser = argparse.ArgumentParser(prog='deepsignal2',
+                                     description="detecting base modifications from Nanopore sequencing reads, "
+                                                 "deepsignal2 contains four modules:\n"
                                                  "\t%(prog)s call_mods: call modifications\n"
                                                  "\t%(prog)s extract: extract features from corrected (tombo) "
                                                  "fast5s for training or testing\n"
@@ -91,7 +90,7 @@ def main():
                                                  "filter false positive samples",
                                      formatter_class=argparse.RawTextHelpFormatter)
 
-    subparsers = parser.add_subparsers(title="modules", help='deepsignal_plant modules, use -h/--help for help')
+    subparsers = parser.add_subparsers(title="modules", help='deepsignal2 modules, use -h/--help for help')
     sub_call_mods = subparsers.add_parser("call_mods", description="call modifications")
     sub_extract = subparsers.add_parser("extract", description="extract features from corrected (tombo) fast5s for "
                                                                "training or testing."
@@ -143,7 +142,7 @@ def main():
                                help="len of kmer. default 13")
     se_extraction.add_argument("--signal_len", action="store",
                                type=int, required=False, default=16,
-                               help="the number of signals of one base to be used in deepsignal_plant, default 16")
+                               help="the number of signals of one base to be used in deepsignal2, default 16")
     se_extraction.add_argument("--motifs", action="store", type=str,
                                required=False, default='CG',
                                help='motif seq to be extracted, default: CG. '
@@ -310,7 +309,7 @@ def main():
     st_train.add_argument('--seq_len', type=int, default=13, required=False,
                           help="len of kmer. default 13")
     st_train.add_argument('--signal_len', type=int, default=16, required=False,
-                          help="the number of signals of one base to be used in deepsignal, default 16")
+                          help="the number of signals of one base to be used in deepsignal2, default 16")
     # model param
     st_train.add_argument('--layernum1', type=int, default=3,
                           required=False, help="lstm layer num for combined feature, default 3")
@@ -364,7 +363,7 @@ def main():
     sd_train.add_argument('--seq_len', type=int, default=13, required=False,
                           help="len of kmer. default 13")
     sd_train.add_argument('--signal_len', type=int, default=16, required=False,
-                          help="the number of signals of one base to be used in deepsignal, default 16")
+                          help="the number of signals of one base to be used in deepsignal2, default 16")
     # model param
     sd_train.add_argument('--layernum1', type=int, default=3,
                           required=False, help="lstm layer num for combined feature, default 3")
