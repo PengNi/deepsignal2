@@ -41,7 +41,7 @@ def train(args):
                                                shuffle=False)
 
     model_dir = args.model_dir
-    model_regex = re.compile(r"" + args.model_type + "\." + "epoch\d+\.ckpt*")
+    model_regex = re.compile(r"" + args.model_type + "\.b\d+_s\d+_epoch\d+\.ckpt*")
     if model_dir != "/":
         model_dir = os.path.abspath(model_dir).rstrip("/")
         if not os.path.exists(model_dir):
@@ -179,8 +179,8 @@ def main():
                         required=False,
                         help="type of model to use, 'both_bilstm', 'seq_bilstm' or 'signal_bilstm', "
                              "'both_bilstm' means to use both seq and signal bilstm, default: both_bilstm")
-    parser.add_argument('--seq_len', type=int, default=13, required=False,
-                        help="len of kmer. default 13")
+    parser.add_argument('--seq_len', type=int, default=17, required=False,
+                        help="len of kmer. default 17")
     parser.add_argument('--signal_len', type=int, default=16, required=False,
                         help="the number of signals of one base to be used in deepsignal2, default 16")
 

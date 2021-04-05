@@ -1,7 +1,7 @@
 # DeepSignal2
 
 ## A deep-learning method for detecting methylation state from Oxford Nanopore sequencing reads.
-**deepsignal2 has the same DNN structure with [deepsignal-plant](https://github.com/PengNi/deepsignal-plant), so the pre-trained models of deepsignal2/deepsignal-plant can be used by both tools.**
+**deepsignal2 has the same DNN structure with [deepsignal-plant](https://github.com/PengNi/deepsignal-plant), so the pre-trained models of deepsignal2/deepsignal-plant can be used by both tools. Importantly, when using models of these two tools, note that default `--seq_len` in deepsignal2 is 17, while in deepsignal-plant is 13.**
 
 deepsignal2 applys BiLSTM to detect methylation from Nanopore reads. It is built on **Python3** and **PyTorch**.
 
@@ -64,7 +64,7 @@ pip install ont-tombo
 The models we trained can be downloaded from [google drive](https://drive.google.com/drive/folders/1F8tImt4aMC4HPznhjczUdMJ64mre8dG9?usp=sharing).
 
 Currently we have trained the following models:
-   * _model.dp2.CG.R9.4_1D.human_hx1.bn13_sn16.both_bilstm.b13_s16_epoch8.ckpt_: A CpG (5mC) model trained using human HX1 R9.4 1D reads.
+   * _model.dp2.CG.R9.4_1D.human_hx1.bn17_sn16.both_bilstm.b17_s16_epoch4.ckpt_: A CpG (5mC) model trained using human HX1 R9.4 1D reads.
 
 
 ## Quick start
@@ -78,7 +78,7 @@ tombo preprocess annotate_raw_with_fastqs --fast5-basedir fast5s/ --fastq-filena
 tombo resquiggle fast5s/ /path/to/genome/reference.fa --processes 10 --corrected-group RawGenomeCorrected_000 --basecall-group Basecall_1D_000 --overwrite
 # 3. deepsignal2 call_mods
 # CG
-CUDA_VISIBLE_DEVICES=0 deepsignal2 call_mods --input_path fast5s/ --model_path model.dp2.CG.R9.4_1D.human_hx1.bn13_sn16.both_bilstm.b13_s16_epoch8.ckpt --result_file fast5s.CG.call_mods.tsv --corrected_group RawGenomeCorrected_000 --reference_path /path/to/genome/reference.fa --motifs CG --nproc 30 --nproc_gpu 6
+CUDA_VISIBLE_DEVICES=0 deepsignal2 call_mods --input_path fast5s/ --model_path model.dp2.CG.R9.4_1D.human_hx1.bn17_sn16.both_bilstm.b17_s16_epoch4.ckpt --result_file fast5s.CG.call_mods.tsv --corrected_group RawGenomeCorrected_000 --reference_path /path/to/genome/reference.fa --motifs CG --nproc 30 --nproc_gpu 6
 python /path/to/deepsignal2/scripts/call_modification_frequency.py --input_path fast5s.CG.call_mods.tsv --result_file fast5s.CG.call_mods.frequency.tsv
 ```
 
@@ -108,7 +108,7 @@ tombo resquiggle fast5s/ /path/to/genome/reference.fa --processes 10 --corrected
 #### 2. extract features
 Features of targeted sites can be extracted for training or testing.
 
-For the example data (deepsignal2 extracts 13-mer-seq and 13*16-signal features of each CpG motif in reads by default. Note that the value of *--corrected_group* must be the same as that of *--corrected-group* in [tombo](https://github.com/nanoporetech/tombo).):
+For the example data (deepsignal2 extracts 17-mer-seq and 17*16-signal features of each CpG motif in reads by default. Note that the value of *--corrected_group* must be the same as that of *--corrected-group* in [tombo](https://github.com/nanoporetech/tombo).):
 ```bash
 deepsignal2 extract -i fast5s --reference_path /path/to/genome/reference.fa -o fast5s.CG.features.tsv --corrected_group RawGenomeCorrected_000 --nproc 30 --motifs CG &
 ```
@@ -136,12 +136,12 @@ For example:
 # call 5mCpGs for instance
 
 # extracted-feature file as input
-deepsignal2 call_mods --input_path fast5s.CG.features.tsv --model_path model.dp2.CG.R9.4_1D.human_hx1.bn13_sn16.both_bilstm.b13_s16_epoch8.ckpt --result_file fast5s.CG.call_mods.tsv --motifs CG --nproc 30 --nproc_gpu 6
+deepsignal2 call_mods --input_path fast5s.CG.features.tsv --model_path model.dp2.CG.R9.4_1D.human_hx1.bn17_sn16.both_bilstm.b17_s16_epoch4.ckpt --result_file fast5s.CG.call_mods.tsv --motifs CG --nproc 30 --nproc_gpu 6
 
 # fast5 files as input, use CPU
-CUDA_VISIBLE_DEVICES=-1 deepsignal2 call_mods --input_path fast5s/ --model_path model.dp2.CG.R9.4_1D.human_hx1.bn13_sn16.both_bilstm.b13_s16_epoch8.ckpt --result_file fast5s.CG.call_mods.tsv --corrected_group RawGenomeCorrected_000 --reference_path /path/to/genome/reference.fa --motifs CG --nproc 30
+CUDA_VISIBLE_DEVICES=-1 deepsignal2 call_mods --input_path fast5s/ --model_path model.dp2.CG.R9.4_1D.human_hx1.bn17_sn16.both_bilstm.b17_s16_epoch4.ckpt --result_file fast5s.CG.call_mods.tsv --corrected_group RawGenomeCorrected_000 --reference_path /path/to/genome/reference.fa --motifs CG --nproc 30
 # fast5 files as input, use GPU
-CUDA_VISIBLE_DEVICES=0 deepsignal2 call_mods --input_path fast5s/ --model_path model.dp2.CG.R9.4_1D.human_hx1.bn13_sn16.both_bilstm.b13_s16_epoch8.ckpt --result_file fast5s.CG.call_mods.tsv --corrected_group RawGenomeCorrected_000 --reference_path /path/to/genome/reference.fa --motifs CG --nproc 30 --nproc_gpu 6
+CUDA_VISIBLE_DEVICES=0 deepsignal2 call_mods --input_path fast5s/ --model_path model.dp2.CG.R9.4_1D.human_hx1.bn17_sn16.both_bilstm.b17_s16_epoch4.ckpt --result_file fast5s.CG.call_mods.tsv --corrected_group RawGenomeCorrected_000 --reference_path /path/to/genome/reference.fa --motifs CG --nproc 30 --nproc_gpu 6
 ```
 
 The modification_call file is a tab-delimited text file in the following format:

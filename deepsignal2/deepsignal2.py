@@ -138,8 +138,8 @@ def main():
                                help="the label of the interested modified bases, this is for training."
                                     " 0 or 1, default 1")
     se_extraction.add_argument("--seq_len", action="store",
-                               type=int, required=False, default=13,
-                               help="len of kmer. default 13")
+                               type=int, required=False, default=17,
+                               help="len of kmer. default 17")
     se_extraction.add_argument("--signal_len", action="store",
                                type=int, required=False, default=16,
                                help="the number of signals of one base to be used in deepsignal2, default 16")
@@ -202,8 +202,8 @@ def main():
                          required=False,
                          help="type of model to use, 'both_bilstm', 'seq_bilstm' or 'signal_bilstm', "
                               "'both_bilstm' means to use both seq and signal bilstm, default: both_bilstm")
-    sc_call.add_argument('--seq_len', type=int, default=13, required=False,
-                         help="len of kmer. default 13")
+    sc_call.add_argument('--seq_len', type=int, default=17, required=False,
+                         help="len of kmer. default 17")
     sc_call.add_argument('--signal_len', type=int, default=16, required=False,
                          help="signal num of one base, default 16")
 
@@ -306,8 +306,8 @@ def main():
                           required=False,
                           help="type of model to use, 'both_bilstm', 'seq_bilstm' or 'signal_bilstm', "
                                "'both_bilstm' means to use both seq and signal bilstm, default: both_bilstm")
-    st_train.add_argument('--seq_len', type=int, default=13, required=False,
-                          help="len of kmer. default 13")
+    st_train.add_argument('--seq_len', type=int, default=17, required=False,
+                          help="len of kmer. default 17")
     st_train.add_argument('--signal_len', type=int, default=16, required=False,
                           help="the number of signals of one base to be used in deepsignal2, default 16")
     # model param
@@ -360,8 +360,8 @@ def main():
                           required=False,
                           help="type of model to use, 'both_bilstm', 'seq_bilstm' or 'signal_bilstm', "
                                "'both_bilstm' means to use both seq and signal bilstm, default: signal_bilstm")
-    sd_train.add_argument('--seq_len', type=int, default=13, required=False,
-                          help="len of kmer. default 13")
+    sd_train.add_argument('--seq_len', type=int, default=17, required=False,
+                          help="len of kmer. default 17")
     sd_train.add_argument('--signal_len', type=int, default=16, required=False,
                           help="the number of signals of one base to be used in deepsignal2, default 16")
     # model param
