@@ -1,4 +1,4 @@
-"""deepsignal-plant uses BiLSTM to detect
+"""deepsignal2 uses BiLSTM to detect
 DNA methylation state from Nanopore reads."""
 
 
