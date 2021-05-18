@@ -42,6 +42,10 @@ git clone https://github.com/PengNi/deepsignal2.git
 cd deepsignal2
 python setup.py install
 ```
+**or** install deepsignal2 using *pip*:
+```bash
+pip install deepsignal2
+```
 
 - [PyTorch](https://pytorch.org/) can be automatically installed during the installation of deepsignal2. However, if the version of [PyTorch](https://pytorch.org/) installed is not appropriate for your OS, an appropriate version should be re-installed in the same environment as the [instructions](https://pytorch.org/get-started/locally/):
 ```bash
