@@ -183,13 +183,7 @@ The modification_frequency file can be either saved in [bedMethyl](https://www.e
    - **modification_frequency**:    modification frequency
    - **k_mer**:   the kmer around the targeted base
 
-#### 4. denoise training samples
-```bash
-# please use deepsignal2 denoise -h/--help for more details
-deepsignal2 denoise --train_file /path/to/train/file
-```
-
-#### 5. train new models
+#### 4. train new models
 A new model can be trained as follows:
 ```bash
 # need to split training samples to two independent datasets for training and validating
