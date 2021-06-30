@@ -114,7 +114,7 @@ Features of targeted sites can be extracted for training or testing.
 
 For the example data (deepsignal2 extracts 17-mer-seq and 17*16-signal features of each CpG motif in reads by default. Note that the value of *--corrected_group* must be the same as that of *--corrected-group* in [tombo](https://github.com/nanoporetech/tombo).):
 ```bash
-deepsignal2 extract -i fast5s --reference_path /path/to/genome/reference.fa -o fast5s.CG.features.tsv --corrected_group RawGenomeCorrected_000 --nproc 30 --motifs CG &
+deepsignal2 extract -i fast5s --reference_path /path/to/genome/reference.fa -o fast5s.CG.features.tsv --corrected_group RawGenomeCorrected_000 --nproc 30 --motifs CG
 ```
 
 The extracted_features file is a tab-delimited text file in the following format:
@@ -139,8 +139,10 @@ For example:
 ```bash
 # call 5mCpGs for instance
 
-# extracted-feature file as input
-deepsignal2 call_mods --input_path fast5s.CG.features.tsv --model_path model.dp2.CG.R9.4_1D.human_hx1.bn17_sn16.both_bilstm.b17_s16_epoch4.ckpt --result_file fast5s.CG.call_mods.tsv --motifs CG --nproc 30 --nproc_gpu 6
+# extracted-feature file as input, use VPU
+CUDA_VISIBLE_DEVICES=-1 deepsignal2 call_mods --input_path fast5s.CG.features.tsv --model_path model.dp2.CG.R9.4_1D.human_hx1.bn17_sn16.both_bilstm.b17_s16_epoch4.ckpt --result_file fast5s.CG.call_mods.tsv --nproc 30
+# extracted-feature file as input, use GPU
+CUDA_VISIBLE_DEVICES=0 deepsignal2 call_mods --input_path fast5s.CG.features.tsv --model_path model.dp2.CG.R9.4_1D.human_hx1.bn17_sn16.both_bilstm.b17_s16_epoch4.ckpt --result_file fast5s.CG.call_mods.tsv --nproc 30 --nproc_gpu 6
 
 # fast5 files as input, use CPU
 CUDA_VISIBLE_DEVICES=-1 deepsignal2 call_mods --input_path fast5s/ --model_path model.dp2.CG.R9.4_1D.human_hx1.bn17_sn16.both_bilstm.b17_s16_epoch4.ckpt --result_file fast5s.CG.call_mods.tsv --corrected_group RawGenomeCorrected_000 --reference_path /path/to/genome/reference.fa --motifs CG --nproc 30
