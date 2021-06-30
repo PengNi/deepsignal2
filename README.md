@@ -139,7 +139,7 @@ For example:
 ```bash
 # call 5mCpGs for instance
 
-# extracted-feature file as input, use VPU
+# extracted-feature file as input, use CPU
 CUDA_VISIBLE_DEVICES=-1 deepsignal2 call_mods --input_path fast5s.CG.features.tsv --model_path model.dp2.CG.R9.4_1D.human_hx1.bn17_sn16.both_bilstm.b17_s16_epoch4.ckpt --result_file fast5s.CG.call_mods.tsv --nproc 30
 # extracted-feature file as input, use GPU
 CUDA_VISIBLE_DEVICES=0 deepsignal2 call_mods --input_path fast5s.CG.features.tsv --model_path model.dp2.CG.R9.4_1D.human_hx1.bn17_sn16.both_bilstm.b17_s16_epoch4.ckpt --result_file fast5s.CG.call_mods.tsv --nproc 30 --nproc_gpu 6
