@@ -63,20 +63,6 @@ def main_train(args):
     print("[main]costs {} seconds".format(endtime - total_start))
 
 
-def main_denoise(args):
-    from .denoise import denoise
-    import time
-
-    print("[main]start..")
-    total_start = time.time()
-
-    display_args(args)
-    denoise(args)
-
-    endtime = time.time()
-    print("[main]costs {} seconds".format(endtime - total_start))
-
-
 def main():
     parser = argparse.ArgumentParser(prog='deepsignal2',
                                      description="detecting base modifications from Nanopore sequencing reads, "
@@ -85,9 +71,7 @@ def main():
                                                  "\t%(prog)s extract: extract features from corrected (tombo) "
                                                  "fast5s for training or testing\n"
                                                  "\t%(prog)s train: train a model, need two independent "
-                                                 "datasets for training and validating\n"
-                                                 "\t%(prog)s denoise: denoise training samples by deep-learning, "
-                                                 "filter false positive samples",
+                                                 "datasets for training and validating",
                                      formatter_class=argparse.RawTextHelpFormatter)
 
     subparsers = parser.add_subparsers(title="modules", help='deepsignal2 modules, use -h/--help for help')
@@ -99,8 +83,6 @@ def main():
                                                                "if the whole data is extremely large.")
     sub_train = subparsers.add_parser("train", description="train a model, need two independent datasets for training "
                                                            "and validating")
-    sub_denoise = subparsers.add_parser("denoise", description="train cross rank, filter false positive samples (and "
-                                                               "false negative samples).")
 
     # sub_extract ============================================================================
     se_input = sub_extract.add_argument_group("INPUT")
@@ -346,55 +328,6 @@ def main():
     st_train.add_argument('--tmpdir', type=str, default="/tmp", required=False)
 
     sub_train.set_defaults(func=main_train)
-
-    # sub_denoise =====================================================================================
-    sd_input = sub_denoise.add_argument_group("INPUT")
-    sd_input.add_argument('--train_file', type=str, required=True)
-
-    sd_train = sub_denoise.add_argument_group("TRAIN")
-    sd_train.add_argument('--is_filter_fn', type=str, default="no", required=False,
-                          help="is filter false negative samples, , 'yes' or 'no', default no")
-    # model input
-    sd_train.add_argument('--model_type', type=str, default="signal_bilstm",
-                          choices=["both_bilstm", "seq_bilstm", "signal_bilstm"],
-                          required=False,
-                          help="type of model to use, 'both_bilstm', 'seq_bilstm' or 'signal_bilstm', "
-                               "'both_bilstm' means to use both seq and signal bilstm, default: signal_bilstm")
-    sd_train.add_argument('--seq_len', type=int, default=17, required=False,
-                          help="len of kmer. default 17")
-    sd_train.add_argument('--signal_len', type=int, default=16, required=False,
-                          help="the number of signals of one base to be used in deepsignal2, default 16")
-    # model param
-    sd_train.add_argument('--layernum1', type=int, default=3,
-                          required=False, help="lstm layer num for combined feature, default 3")
-    sd_train.add_argument('--layernum2', type=int, default=1,
-                          required=False, help="lstm layer num for seq feature (and for signal feature too), default 1")
-    sd_train.add_argument('--class_num', type=int, default=2, required=False)
-    sd_train.add_argument('--dropout_rate', type=float, default=0.5, required=False)
-    sd_train.add_argument('--n_vocab', type=int, default=16, required=False,
-                          help="base_seq vocab_size (15 base kinds from iupac)")
-    sd_train.add_argument('--n_embed', type=int, default=4, required=False,
-                          help="base_seq embedding_size")
-    sd_train.add_argument('--is_base', type=str, default="yes", required=False,
-                          help="is using base features in seq model, default yes")
-    sd_train.add_argument('--is_signallen', type=str, default="yes", required=False,
-                          help="is using signal length feature of each base in seq model, default yes")
-    # BiLSTM model param
-    sd_train.add_argument('--hid_rnn', type=int, default=256, required=False,
-                          help="BiLSTM hidden_size for combined feature")
-    # model training
-    sd_train.add_argument('--batch_size', type=int, default=512, required=False)
-    sd_train.add_argument('--lr', type=float, default=0.001, required=False)
-    sd_train.add_argument('--epoch_num', type=int, default=3, required=False)
-    sd_train.add_argument('--step_interval', type=int, default=100, required=False)
-    sd_train.add_argument('--iterations', type=int, default=10, required=False)
-    sd_train.add_argument('--rounds', type=int, default=3, required=False)
-    sd_train.add_argument("--score_cf", type=float, default=0.5,
-                          required=False,
-                          help="score cutoff")
-    sd_train.add_argument('--pos_weight', type=float, default=1.0, required=False)
-
-    sub_denoise.set_defaults(func=main_denoise)
 
     args = parser.parse_args()
     if hasattr(args, 'func'):
