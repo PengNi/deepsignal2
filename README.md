@@ -3,7 +3,7 @@
 ## A deep-learning method for detecting methylation state from Oxford Nanopore sequencing reads.
 **deepsignal2 has the same DNN structure with [deepsignal-plant](https://github.com/PengNi/deepsignal-plant), so the pre-trained models of deepsignal2/deepsignal-plant can be used by both tools. Importantly, when using models of these two tools, note that default `--seq_len` in deepsignal2 is 17, while in deepsignal-plant is 13.**
 
-deepsignal2 applys BiLSTM to detect methylation from Nanopore reads. It is built on **Python3** and **PyTorch**.
+deepsignal2 applies BiLSTM to detect methylation from Nanopore reads. It is built on **Python3** and **PyTorch**.
 
 ## Contents
 - [Installation](#Installation)
