@@ -7,7 +7,7 @@ Release
 
 0.1.1
 -----
-add `initial_model` option in train module
+add `init_model` option in train module
 
 
 0.1.0
