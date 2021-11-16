@@ -5,6 +5,25 @@
 
 deepsignal2 applies BiLSTM to detect methylation from Nanopore reads. It is built on **Python3** and **PyTorch**.
 
+
+#### Known issues
+- The VBZ compression issue is not completely solved yet. Please try the commands listed below, normally it will work after setting `HDF5_PLUGIN_PATH`:
+```shell
+# 1. install hdf5/hdf5-tools
+# ubuntu
+sudo apt-get install libhdf5-serial-dev hdf5-tools
+# centos
+sudo yum install hdf5-devel
+
+# 2. download ont-vbz-hdf-plugin-1.0.1-Linux-x86_64.tar.gz (or newer version) and set HDF5_PLUGIN_PATH
+# https://github.com/nanoporetech/vbz_compression/releases
+wget https://github.com/nanoporetech/vbz_compression/releases/download/v1.0.1/ont-vbz-hdf-plugin-1.0.1-Linux-x86_64.tar.gz
+tar zxvf ont-vbz-hdf-plugin-1.0.1-Linux-x86_64.tar.gz
+export HDF5_PLUGIN_PATH=/abslolute/path/to/ont-vbz-hdf-plugin-1.0.1-Linux/usr/local/hdf5/lib/plugin
+```
+References: [deepsignal-plant issue #8](https://github.com/PengNi/deepsignal-plant/issues/8), [tombo issue #254](https://github.com/nanoporetech/tombo/issues/254), and [vbz_compression issue #5](https://github.com/nanoporetech/vbz_compression/issues/5).
+
+
 ## Contents
 - [Installation](#Installation)
 - [Trained models](#Trained-models)
@@ -67,7 +86,7 @@ pip install ont-tombo
 ## Trained models
 The models we trained can be downloaded from [google drive](https://drive.google.com/drive/folders/1F8tImt4aMC4HPznhjczUdMJ64mre8dG9?usp=sharing).
 
-Currently we have trained the following models:
+Currently, we have trained the following models:
    * _model.dp2.CG.R9.4_1D.human_hx1.bn17_sn16.both_bilstm.b17_s16_epoch4.ckpt_: A CpG (5mC) model trained using human HX1 R9.4 1D reads.
 
 
