@@ -52,7 +52,7 @@ setup(
                       'h5py>=2.8.0',
                       'statsmodels>=0.9.0',
                       'scikit-learn>=0.20.1',
-                      'torch>=1.2.0,<=1.6.0',
+                      'torch>=1.2.0,<=1.7.0',
                       ],
     # cmdclass={'test': PyTest},
     author_email='543943952@qq.com',
