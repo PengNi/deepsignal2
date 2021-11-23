@@ -111,7 +111,7 @@ def train(args):
             torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             optimizer.step()
 
-            if (i + 1) % args.step_interval == 0:
+            if (i + 1) % args.step_interval == 0 or i == total_step - 1:
                 model.eval()
                 with torch.no_grad():
                     vlosses, vaccus, vprecs, vrecas = [], [], [], []
