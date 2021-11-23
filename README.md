@@ -97,7 +97,7 @@ To call modifications, the raw fast5 files should be basecalled ([Guppy>=3.6.1](
 guppy_basecaller -i fast5s/ -r -s fast5s_guppy --config dna_r9.4.1_450bps_hac_prom.cfg
 # 2. tombo resquiggle
 cat fast5s_guppy/*.fastq > fast5s_guppy.fastq
-tombo preprocess annotate_raw_with_fastqs --fast5-basedir fast5s/ --fastq-filenames fast5s_guppy.fastq --basecall-group Basecall_1D_000 --basecall-subgroup BaseCalled_template --overwrite --processes 10
+tombo preprocess annotate_raw_with_fastqs --fast5-basedir fast5s/ --fastq-filenames fast5s_guppy.fastq --sequencing-summary-filenames fast5s_guppy/sequencing_summary.txt --basecall-group Basecall_1D_000 --basecall-subgroup BaseCalled_template --overwrite --processes 10
 tombo resquiggle fast5s/ /path/to/genome/reference.fa --processes 10 --corrected-group RawGenomeCorrected_000 --basecall-group Basecall_1D_000 --overwrite
 # 3. deepsignal2 call_mods
 # CG
@@ -123,7 +123,7 @@ For example:
 guppy_basecaller -i fast5s/ -r -s fast5s_guppy --config dna_r9.4.1_450bps_hac_prom.cfg
 # 2. proprecess fast5 if basecall results are saved in fastq format
 cat fast5s_guppy/*.fastq > fast5s_guppy.fastq
-tombo preprocess annotate_raw_with_fastqs --fast5-basedir fast5s/ --fastq-filenames fast5s_guppy.fastq --basecall-group Basecall_1D_000 --basecall-subgroup BaseCalled_template --overwrite --processes 10
+tombo preprocess annotate_raw_with_fastqs --fast5-basedir fast5s/ --fastq-filenames fast5s_guppy.fastq --sequencing-summary-filenames fast5s_guppy/sequencing_summary.txt --basecall-group Basecall_1D_000 --basecall-subgroup BaseCalled_template --overwrite --processes 10
 # 3. resquiggle, cmd: tombo resquiggle $fast5_dir $reference_fa
 tombo resquiggle fast5s/ /path/to/genome/reference.fa --processes 10 --corrected-group RawGenomeCorrected_000 --basecall-group Basecall_1D_000 --overwrite
 ```
