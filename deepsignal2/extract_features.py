@@ -27,8 +27,8 @@ from .utils.process_utils import get_motif_seqs
 from .utils.ref_reader import get_contig2len
 
 reads_group = 'Raw/Reads'
-queen_size_border = 2000
-time_wait = 3
+queen_size_border_f5batch = 100
+time_wait = 1
 # MAX_LEGAL_SIGNAL_NUM = 800  # 800 only for 17-mer
 
 key_sep = "||"
@@ -336,6 +336,7 @@ def get_a_batch_features_str(fast5s_q, featurestr_q, errornum_q,
                              corrected_group, basecall_subgroup, normalize_method,
                              motif_seqs, methyloc, chrom2len, kmer_len, signals_len, methy_label,
                              positions):
+    print("extrac_features process-{} starts".format(os.getpid()))
     f5_num = 0
     while True:
         if fast5s_q.empty():
@@ -355,12 +356,13 @@ def get_a_batch_features_str(fast5s_q, featurestr_q, errornum_q,
 
         errornum_q.put(error_num)
         featurestr_q.put(features_str)
-        while featurestr_q.qsize() > queen_size_border:
+        while featurestr_q.qsize() > queen_size_border_f5batch:
             time.sleep(time_wait)
     print("extrac_features process-{} ending, proceed {} fast5s".format(os.getpid(), f5_num))
 
 
 def _write_featurestr_to_file(write_fp, featurestr_q):
+    print("write_process-{} starts".format(os.getpid()))
     with open(write_fp, 'w') as wf:
         while True:
             # during test, it's ok without the sleep(time_wait)
@@ -377,6 +379,7 @@ def _write_featurestr_to_file(write_fp, featurestr_q):
 
 
 def _write_featurestr_to_dir(write_dir, featurestr_q, w_batch_num):
+    print("write_process-{} starts".format(os.getpid()))
     if os.path.exists(write_dir):
         if os.path.isfile(write_dir):
             raise FileExistsError("{} already exists as a file, please use another write_dir".format(write_dir))
@@ -586,9 +589,9 @@ def main():
     extraction_parser.add_argument("--nproc", "-p", action="store", type=int, default=1,
                                    required=False,
                                    help="number of processes to be used, default 1")
-    extraction_parser.add_argument("--f5_batch_size", action="store", type=int, default=100,
+    extraction_parser.add_argument("--f5_batch_size", action="store", type=int, default=50,
                                    required=False,
-                                   help="number of files to be processed by each process one time, default 100")
+                                   help="number of files to be processed by each process one time, default 50")
 
     extraction_args = extraction_parser.parse_args()
     display_args(extraction_args)
