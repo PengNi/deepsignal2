@@ -315,14 +315,14 @@ def _features_to_str(features):
     :param features: a tuple
     :return:
     """
-    chrom, pos, alignstrand, loc_in_ref, readname, strand, k_mer, signal_means, signal_stds, \
+    chrom, pos, alignstrand, pos_in_strand, readname, strand, k_mer, signal_means, signal_stds, \
         signal_lens, k_signals_rect, methy_label = features
     means_text = ','.join([str(x) for x in np.around(signal_means, decimals=6)])
     stds_text = ','.join([str(x) for x in np.around(signal_stds, decimals=6)])
     signal_len_text = ','.join([str(x) for x in signal_lens])
     k_signals_text = ';'.join([",".join([str(y) for y in x]) for x in k_signals_rect])
 
-    return "\t".join([chrom, str(pos), alignstrand, str(loc_in_ref), readname, strand, k_mer, means_text,
+    return "\t".join([chrom, str(pos), alignstrand, str(pos_in_strand), readname, strand, k_mer, means_text,
                       stds_text, signal_len_text, k_signals_text, str(methy_label)])
 
 
