@@ -4,6 +4,9 @@ deepsignal2
 
 Release
 -------
+0.1.3
+-----
+
 0.1.2
 -----
 make sure results of each read be written together in call_mods' output

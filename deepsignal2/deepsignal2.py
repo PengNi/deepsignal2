@@ -66,7 +66,7 @@ def main_train(args):
 def main():
     parser = argparse.ArgumentParser(prog='deepsignal2',
                                      description="detecting base modifications from Nanopore sequencing reads, "
-                                                 "deepsignal2 contains four modules:\n"
+                                                 "deepsignal2 contains three modules:\n"
                                                  "\t%(prog)s call_mods: call modifications\n"
                                                  "\t%(prog)s extract: extract features from corrected (tombo) "
                                                  "fast5s for training or testing\n"

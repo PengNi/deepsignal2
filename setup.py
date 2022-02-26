@@ -23,19 +23,23 @@ def find_version(*file_paths):
     raise RuntimeError("Unable to find version string.")
 
 
-class PyTest(TestCommand):
-    def finalize_options(self):
-        TestCommand.finalize_options(self)
-        self.test_args = ['--strict', '--verbose', '--tb=long', 'tests']
-        self.test_suite = True
-
-    def run_tests(self):
-        import pytest
-        errno = pytest.main(self.test_args)
-        sys.exit(errno)
+# class PyTest(TestCommand):
+#     def finalize_options(self):
+#         TestCommand.finalize_options(self)
+#         self.test_args = ['--strict', '--verbose', '--tb=long', 'tests']
+#         self.test_suite = True
+#
+#     def run_tests(self):
+#         import pytest
+#         errno = pytest.main(self.test_args)
+#         sys.exit(errno)
 
 
 long_description = read('README.rst')
+
+
+with open('requirements.txt', 'r') as rf:
+    required = rf.read().splitlines()
 
 
 setup(
@@ -48,12 +52,13 @@ setup(
     license='GNU General Public License v3 (GPLv3)',
     author='Peng Ni',
     # tests_require=['pytest'],
-    install_requires=['numpy>=1.15.3',
-                      'h5py>=2.8.0',
-                      'statsmodels>=0.9.0',
-                      'scikit-learn>=0.20.1',
-                      'torch>=1.2.0,<=1.7.0',
-                      ],
+    # install_requires=['numpy>=1.15.3',
+    #                   'h5py>=2.8.0',
+    #                   'statsmodels>=0.9.0',
+    #                   'scikit-learn>=0.20.1',
+    #                   'torch>=1.2.0,<=1.7.0',
+    #                   ],
+    install_requires=required,
     # cmdclass={'test': PyTest},
     author_email='543943952@qq.com',
     description='A deep-learning method for detecting DNA methylation state '

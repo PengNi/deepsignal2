@@ -9,7 +9,7 @@ deepsignal2 applies BiLSTM to detect methylation from Nanopore reads. It is buil
 #### Known issues
 - The VBZ compression issue is not completely solved yet. Please try the commands listed below, normally it will work after setting `HDF5_PLUGIN_PATH`:
 ```shell
-# 1. install hdf5/hdf5-tools
+# 1. install hdf5/hdf5-tools  (maybe not necessary)
 # ubuntu
 sudo apt-get install libhdf5-serial-dev hdf5-tools
 # centos
@@ -111,7 +111,7 @@ python /path/to/deepsignal2/scripts/call_modification_frequency.py --input_path 
 Before run deepsignal, the raw reads should be basecalled ([Guppy>=3.6.1](https://nanoporetech.com/community)) and then be processed by the *re-squiggle* module of [tombo](https://github.com/nanoporetech/tombo).
 
 Note:
-- If the fast5 files are in multi-read FAST5 format, please use _multi_to_single_fast5_ command from the [ont_fast5_api package](https://github.com/nanoporetech/ont_fast5_api) to convert the fast5 files before using tombo (Ref to [issue #173](https://github.com/nanoporetech/tombo/issues/173) in [tombo](https://github.com/nanoporetech/tombo)).
+- If the fast5 files are in multi-read FAST5 format, please use _multi_to_single_fast5_ command from the [ont_fast5_api package](https://github.com/nanoporetech/ont_fast5_api) to convert the fast5 files before using [Guppy](https://nanoporetech.com/community) and [tombo](https://nanoporetech.com/community) (Ref to [issue #173](https://github.com/nanoporetech/tombo/issues/173) in [tombo](https://github.com/nanoporetech/tombo)).
 ```bash
 multi_to_single_fast5 -i $multi_read_fast5_dir -s $single_read_fast5_dir -t 30 --recursive
 ```
@@ -119,12 +119,14 @@ multi_to_single_fast5 -i $multi_read_fast5_dir -s $single_read_fast5_dir -t 30 -
 
 For example:
 ```bash
-# 1. basecall
+# 1. run multi_to_single_fast5 if needed
+multi_to_single_fast5 -i $multi_read_fast5_dir -s $single_read_fast5_dir -t 30 --recursive
+# 2. basecall, fast5s/ is the $single_read_fast5_dir
 guppy_basecaller -i fast5s/ -r -s fast5s_guppy --config dna_r9.4.1_450bps_hac_prom.cfg
-# 2. proprecess fast5 if basecall results are saved in fastq format
+# 3. proprecess fast5 if basecall results are saved in fastq format
 cat fast5s_guppy/*.fastq > fast5s_guppy.fastq
 tombo preprocess annotate_raw_with_fastqs --fast5-basedir fast5s/ --fastq-filenames fast5s_guppy.fastq --sequencing-summary-filenames fast5s_guppy/sequencing_summary.txt --basecall-group Basecall_1D_000 --basecall-subgroup BaseCalled_template --overwrite --processes 10
-# 3. resquiggle, cmd: tombo resquiggle $fast5_dir $reference_fa
+# 4. resquiggle, cmd: tombo resquiggle $fast5_dir $reference_fa
 tombo resquiggle fast5s/ /path/to/genome/reference.fa --processes 10 --corrected-group RawGenomeCorrected_000 --basecall-group Basecall_1D_000 --overwrite
 ```
 
