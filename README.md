@@ -46,7 +46,7 @@ deepsignal2 is built on [Python3](https://www.python.org/) and [PyTorch](https:/
 We highly recommend using a virtual environment for the installation of deepsignal2 and its dependencies. A virtual environment can be created and (de)activated as follows by using [conda](https://conda.io/docs/):
 ```bash
 # create
-conda create -n deepsignal2env python=3.6
+conda create -n deepsignal2env python=3.7
 # activate
 conda activate deepsignal2env
 # deactivate
