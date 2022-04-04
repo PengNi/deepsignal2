@@ -9,7 +9,7 @@ deepsignal2 applies BiLSTM to detect methylation from Nanopore reads. It is buil
 #### Known issues
 - The VBZ compression issue is not completely solved yet. Please try the commands listed below, normally it will work after setting `HDF5_PLUGIN_PATH`:
 ```shell
-# 1. install hdf5/hdf5-tools  (maybe not necessary)
+# 1. install hdf5/hdf5-tools (maybe not necessary)
 # ubuntu
 sudo apt-get install libhdf5-serial-dev hdf5-tools
 # centos

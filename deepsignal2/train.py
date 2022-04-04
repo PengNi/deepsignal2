@@ -114,7 +114,8 @@ def train(args):
             if (i + 1) % args.step_interval == 0 or i == total_step - 1:
                 model.eval()
                 with torch.no_grad():
-                    vlosses, vaccus, vprecs, vrecas = [], [], [], []
+                    # vlosses, vaccus, vprecs, vrecas = [], [], [], []
+                    vlosses, vlabels_total, vpredicted_total = [], [], []
                     for vi, vsfeatures in enumerate(valid_loader):
                         _, vkmer, vbase_means, vbase_stds, vbase_signal_lens, vsignals, vlabels = vsfeatures
                         if use_cuda:
@@ -132,18 +133,23 @@ def train(args):
                         if use_cuda:
                             vlabels = vlabels.cpu()
                             vpredicted = vpredicted.cpu()
-                        i_accuracy = metrics.accuracy_score(vlabels.numpy(), vpredicted)
-                        i_precision = metrics.precision_score(vlabels.numpy(), vpredicted)
-                        i_recall = metrics.recall_score(vlabels.numpy(), vpredicted)
-
-                        vaccus.append(i_accuracy)
-                        vprecs.append(i_precision)
-                        vrecas.append(i_recall)
+                        # i_accuracy = metrics.accuracy_score(vlabels.numpy(), vpredicted)
+                        # i_precision = metrics.precision_score(vlabels.numpy(), vpredicted)
+                        # i_recall = metrics.recall_score(vlabels.numpy(), vpredicted)
+                        #
+                        # vaccus.append(i_accuracy)
+                        # vprecs.append(i_precision)
+                        # vrecas.append(i_recall)
                         vlosses.append(vloss.item())
+                        vlabels_total += vlabels.tolist()
+                        vpredicted_total += vpredicted.tolist()
 
-                    if np.mean(vaccus) > curr_best_accuracy_epoch:
-                        curr_best_accuracy_epoch = np.mean(vaccus)
-                        if curr_best_accuracy_epoch > curr_best_accuracy - 0.001:
+                    v_accuracy = metrics.accuracy_score(vlabels_total, vpredicted_total)
+                    v_precision = metrics.precision_score(vlabels_total, vpredicted_total)
+                    v_recall = metrics.recall_score(vlabels_total, vpredicted_total)
+                    if v_accuracy > curr_best_accuracy_epoch:
+                        curr_best_accuracy_epoch = v_accuracy
+                        if curr_best_accuracy_epoch > curr_best_accuracy - 0.0005:
                             torch.save(model.state_dict(),
                                        model_dir + args.model_type + '.b{}_s{}_epoch{}.ckpt'.format(args.seq_len,
                                                                                                     args.signal_len,
@@ -155,7 +161,7 @@ def train(args):
                           'Accuracy: {:.4f}, Precision: {:.4f}, Recall: {:.4f}, '
                           'curr_epoch_best_accuracy: {:.4f}; Time: {:.2f}s'
                           .format(epoch + 1, args.max_epoch_num, i + 1, total_step, np.mean(tlosses),
-                                  np.mean(vlosses), np.mean(vaccus), np.mean(vprecs), np.mean(vrecas),
+                                  np.mean(vlosses), v_accuracy, v_precision, v_recall,
                                   curr_best_accuracy_epoch, time_cost))
                     tlosses = []
                     start = time.time()
