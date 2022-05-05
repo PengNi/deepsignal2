@@ -6,7 +6,7 @@ Release
 -------
 0.1.3
 -----
-bug fixes (train module, )
+bug fixes in train module
 
 
 0.1.2

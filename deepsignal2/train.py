@@ -88,6 +88,7 @@ def train(args):
     model.train()
     for epoch in range(args.max_epoch_num):
         curr_best_accuracy_epoch = 0
+        no_best_model = True
         tlosses = []
         start = time.time()
         for i, sfeatures in enumerate(train_loader):
@@ -114,7 +115,6 @@ def train(args):
             if (i + 1) % args.step_interval == 0 or i == total_step - 1:
                 model.eval()
                 with torch.no_grad():
-                    # vlosses, vaccus, vprecs, vrecas = [], [], [], []
                     vlosses, vlabels_total, vpredicted_total = [], [], []
                     for vi, vsfeatures in enumerate(valid_loader):
                         _, vkmer, vbase_means, vbase_stds, vbase_signal_lens, vsignals, vlabels = vsfeatures
@@ -133,13 +133,6 @@ def train(args):
                         if use_cuda:
                             vlabels = vlabels.cpu()
                             vpredicted = vpredicted.cpu()
-                        # i_accuracy = metrics.accuracy_score(vlabels.numpy(), vpredicted)
-                        # i_precision = metrics.precision_score(vlabels.numpy(), vpredicted)
-                        # i_recall = metrics.recall_score(vlabels.numpy(), vpredicted)
-                        #
-                        # vaccus.append(i_accuracy)
-                        # vprecs.append(i_precision)
-                        # vrecas.append(i_recall)
                         vlosses.append(vloss.item())
                         vlabels_total += vlabels.tolist()
                         vpredicted_total += vpredicted.tolist()
@@ -149,11 +142,14 @@ def train(args):
                     v_recall = metrics.recall_score(vlabels_total, vpredicted_total)
                     if v_accuracy > curr_best_accuracy_epoch:
                         curr_best_accuracy_epoch = v_accuracy
-                        if curr_best_accuracy_epoch > curr_best_accuracy - 0.0005:
+                        if curr_best_accuracy_epoch > curr_best_accuracy - 0.0002:
                             torch.save(model.state_dict(),
                                        model_dir + args.model_type + '.b{}_s{}_epoch{}.ckpt'.format(args.seq_len,
                                                                                                     args.signal_len,
                                                                                                     epoch))
+                            if curr_best_accuracy_epoch > curr_best_accuracy:
+                                curr_best_accuracy = curr_best_accuracy_epoch
+                                no_best_model = False
 
                     time_cost = time.time() - start
                     print('Epoch [{}/{}], Step [{}/{}], TrainLoss: {:.4f}; '
@@ -168,16 +164,16 @@ def train(args):
                     sys.stdout.flush()
                 model.train()
         scheduler.step()
-        if curr_best_accuracy_epoch > curr_best_accuracy:
-            curr_best_accuracy = curr_best_accuracy_epoch
-        else:
-            if epoch >= args.min_epoch_num - 1:
-                print("best accuracy: {}, early stop!".format(curr_best_accuracy))
-                break
+
+        if no_best_model and epoch >= args.min_epoch_num - 1:
+            print("early stop!")
+            break
 
     endtime = time.time()
     clear_linecache()
-    print("[train]training cost {} seconds".format(endtime - total_start))
+    print("[train]training cost {} seconds, "
+          "best accuracy: {}".format(endtime - total_start, 
+                                     curr_best_accuracy))
 
 
 def main():
