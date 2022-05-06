@@ -51,16 +51,9 @@ def main_call_mods(args):
 
 def main_train(args):
     from .train import train
-    import time
-
-    print("[main]start..")
-    total_start = time.time()
 
     display_args(args)
     train(args)
-
-    endtime = time.time()
-    print("[main]costs {} seconds".format(endtime - total_start))
 
 
 def main():
