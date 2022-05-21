@@ -8,6 +8,8 @@ Release
 -----
 bug fixes in train module
 
+multi-gpu support in call_mods module
+
 
 0.1.2
 -----
