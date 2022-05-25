@@ -40,6 +40,9 @@ from .utils.constants_torch import use_cuda
 
 import uuid
 
+# add this export temporarily
+os.environ['MKL_THREADING_LAYER'] = 'GNU'
+
 queue_size_border_f5batch = 100
 queue_size_border = 1000
 time_wait = 1
