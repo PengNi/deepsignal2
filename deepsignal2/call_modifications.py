@@ -150,7 +150,7 @@ def _call_mods(features_batch, model, batch_size, device=0):
                 # chromosome, pos, strand, pos_in_strand, read_name, read_strand, prob_0, prob_1, called_label, seq
                 prob_0, prob_1 = logits[idx][0], logits[idx][1]
                 prob_0_norm = round(prob_0 / (prob_0 + prob_1), 6)
-                prob_1_norm = round(prob_1 / (prob_0 + prob_1), 6)
+                prob_1_norm = round(1 - prob_0_norm, 6)
                 pred_str.append("\t".join([b_sampleinfo[idx], str(prob_0_norm),
                                            str(prob_1_norm), str(predicted[idx]),
                                            ''.join([code2base_dna[x] for x in b_kmers[idx]])]))
