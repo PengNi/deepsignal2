@@ -197,7 +197,7 @@ def _call_mods_q(model_path, features_batch_q, pred_str_q, success_file, args, d
         pred_str, accuracy, batch_num = _call_mods(features_batch, model, args.batch_size, device)
 
         pred_str_q.put(pred_str)
-        while pred_str_q.size() > queue_size_border:
+        while pred_str_q.qsize() > queue_size_border:
             time.sleep(time_wait)
         # for debug
         # print("call_mods process-{} reads 1 batch, features_batch_q:{}, "
