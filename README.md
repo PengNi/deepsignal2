@@ -33,7 +33,7 @@ References: [deepsignal-plant issue #8](https://github.com/PengNi/deepsignal-pla
 ## Installation
 deepsignal2 is built on [Python3](https://www.python.org/) and [PyTorch](https://pytorch.org/). [tombo](https://github.com/nanoporetech/tombo) is required to re-squiggle the raw signals from nanopore reads before running deepsignal2.
    - Prerequisites:\
-       [Python3.*](https://www.python.org/)\
+       [Python3.*](https://www.python.org/) (version>=3.8)\
        [tombo](https://github.com/nanoporetech/tombo) (version 1.5.1)
    - Dependencies:\
        [numpy](http://www.numpy.org/)\
@@ -46,7 +46,7 @@ deepsignal2 is built on [Python3](https://www.python.org/) and [PyTorch](https:/
 We highly recommend using a virtual environment for the installation of deepsignal2 and its dependencies. A virtual environment can be created and (de)activated as follows by using [conda](https://conda.io/docs/):
 ```bash
 # create
-conda create -n deepsignal2env python=3.7
+conda create -n deepsignal2env python=3.8
 # activate
 conda activate deepsignal2env
 # deactivate
