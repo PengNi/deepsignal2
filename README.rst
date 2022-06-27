@@ -10,6 +10,8 @@ bug fixes in train module
 
 multi-gpu support in call_mods module
 
+updates dependences/requirements
+
 
 0.1.2
 -----

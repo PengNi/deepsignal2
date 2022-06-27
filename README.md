@@ -40,7 +40,7 @@ deepsignal2 is built on [Python3](https://www.python.org/) and [PyTorch](https:/
        [h5py](https://github.com/h5py/h5py)\
        [statsmodels](https://github.com/statsmodels/statsmodels/)\
        [scikit-learn](https://scikit-learn.org/stable/)\
-       [PyTorch](https://pytorch.org/) (version >=1.2.0, <=1.7.0?)
+       [PyTorch](https://pytorch.org/) (version >=1.2.0, <=1.11.0)
 
 #### 1. Create an environment
 We highly recommend using a virtual environment for the installation of deepsignal2 and its dependencies. A virtual environment can be created and (de)activated as follows by using [conda](https://conda.io/docs/):
@@ -69,9 +69,9 @@ pip install deepsignal2
 - [PyTorch](https://pytorch.org/) can be automatically installed during the installation of deepsignal2. However, if the version of [PyTorch](https://pytorch.org/) installed is not appropriate for your OS, an appropriate version should be re-installed in the same environment as the [instructions](https://pytorch.org/get-started/locally/):
 ```bash
 # install using conda
-conda install pytorch==1.4.0 torchvision==0.5.0 cudatoolkit=10.1 -c pytorch
+conda install pytorch==1.11.0 cudatoolkit=10.2 -c pytorch
 # or install using pip
-pip install torch==1.4.0 torchvision==0.5.0
+pip install torch==1.11.0
 ```
 
 - [tombo](https://github.com/nanoporetech/tombo) is required to be installed in the same environment:

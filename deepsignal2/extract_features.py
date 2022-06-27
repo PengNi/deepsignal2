@@ -141,7 +141,7 @@ def _get_alignment_info_from_fast5(fast5_path, corrected_group='RawGenomeCorrect
         else:
             return '', '', '', '', ''
     except IOError:
-        print("the {} can't be opened".format(fast5_path))
+        print("file-{} can't be opened".format(fast5_path))
         return '', '', '', '', ''
 
 
