@@ -23,6 +23,9 @@ def find_version(*file_paths):
     raise RuntimeError("Unable to find version string.")
 
 
+__version__ = find_version('deepsignal2', '__init__.py')
+
+
 # class PyTest(TestCommand):
 #     def finalize_options(self):
 #         TestCommand.finalize_options(self)
@@ -46,9 +49,9 @@ setup(
     name='deepsignal2',
     packages=['deepsignal2'],
     keywords=['methylation', 'nanopore', 'neural network'],
-    version=find_version('deepsignal2', '__init__.py'),
+    version=__version__,
     url='https://github.com/PengNi/deepsignal2',
-    download_url='https://github.com/PengNi/deepsignal2/archive/0.1.2.tar.gz',
+    download_url='https://github.com/PengNi/deepsignal2/archive/{}.tar.gz'.format(__version__),
     license='GNU General Public License v3 (GPLv3)',
     author='Peng Ni',
     # tests_require=['pytest'],
