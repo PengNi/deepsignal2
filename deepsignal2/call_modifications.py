@@ -69,7 +69,7 @@ def _read_features_file(features_file, features_batch_q, f5_batch_size=20):
         base_means.append([float(x) for x in words[7].split(",")])
         base_stds.append([float(x) for x in words[8].split(",")])
         base_signal_lens.append([int(x) for x in words[9].split(",")])
-        k_signals.append(np.array([[float(y) for y in x.split(",")] for x in words[10].split(";")]))
+        k_signals.append([[float(y) for y in x.split(",")] for x in words[10].split(";")])
         labels.append(int(words[11]))
 
         for line in rf:
@@ -97,7 +97,7 @@ def _read_features_file(features_file, features_batch_q, f5_batch_size=20):
             base_means.append([float(x) for x in words[7].split(",")])
             base_stds.append([float(x) for x in words[8].split(",")])
             base_signal_lens.append([int(x) for x in words[9].split(",")])
-            k_signals.append(np.array([[float(y) for y in x.split(",")] for x in words[10].split(";")]))
+            k_signals.append([[float(y) for y in x.split(",")] for x in words[10].split(";")])
             labels.append(int(words[11]))
         r_num += 1
         if len(sampleinfo) > 0:
@@ -172,6 +172,7 @@ def _call_mods_q(model_path, features_batch_q, pred_str_q, success_file, args, d
     model_dict = model.state_dict()
     model_dict.update(para_dict)
     model.load_state_dict(model_dict)
+    del model_dict
 
     if use_cuda:
         model = model.cuda(device)
