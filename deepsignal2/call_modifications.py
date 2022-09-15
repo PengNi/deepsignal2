@@ -155,7 +155,7 @@ def _call_mods(features_batch, model, batch_size, device=0):
                                            str(prob_1_norm), str(predicted[idx]),
                                            ''.join([code2base_dna[x] for x in b_kmers[idx]])]))
             batch_num += 1
-    accuracy = np.mean(accuracys)
+    accuracy = np.mean(accuracys) if len(accuracys) > 0 else 0
 
     return pred_str, accuracy, batch_num
 
@@ -252,8 +252,9 @@ def _read_features_from_fast5s(fast5s, motif_seqs, chrom2len, positions, args):
         base_signal_lens.append(signal_lens)
         k_signals.append(kmer_base_signals)
         labels.append(f_methy_label)
-    features_batches.append((sampleinfo, kmers, base_means, base_stds,
-                             base_signal_lens, k_signals, labels))
+    if len(sampleinfo) > 0:
+        features_batches.append((sampleinfo, kmers, base_means, base_stds,
+                                 base_signal_lens, k_signals, labels))
     return features_batches, error
 
 
