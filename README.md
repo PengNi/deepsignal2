@@ -93,7 +93,8 @@ pip install ont-tombo
 The models we trained can be downloaded from [google drive](https://drive.google.com/drive/folders/1F8tImt4aMC4HPznhjczUdMJ64mre8dG9?usp=sharing).
 
 Currently, we have trained the following models:
-   * _model.dp2.CG.R9.4_1D.human_hx1.bn17_sn16.both_bilstm.b17_s16_epoch4.ckpt_: A CpG (5mC) model trained using human HX1 R9.4 1D reads.
+   * _model.dp2.CG.R9.4_1D.human_hx1_t2t.both_bilstm.b17_s16_epoch7.ckpt_: A CpG (5mC) model trained using human HX1 R9.4 1D reads with CHM13-T2T as reference genome.
+   * [DEPRECATED] ~~_model.dp2.CG.R9.4_1D.human_hx1.bn17_sn16.both_bilstm.b17_s16_epoch4.ckpt_: A CpG (5mC) model trained using human HX1 R9.4 1D reads.~~
 
 
 ## Quick start
