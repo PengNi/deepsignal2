@@ -22,11 +22,37 @@ def _read_one_mod_freq_file(freqfile):
     return freqinfo
 
 
-def _get_combined_freq_file(freqfiles):
+def _read_one_mod_bedmethyl_file(bedfile):
+    freqinfo = {}
+    with open(bedfile, "r") as rf:
+        for line in rf:
+            words = line.strip().split("\t")
+            m_key = (words[0], int(words[1]), words[5])
+            pos_in_strand = -1
+            methy_prob = 0.0
+            unmethy_prob = 0.0
+            rmet = float(words[10]) / 100
+            cov = int(words[9])
+            if cov <= 0:
+                continue
+            methy_cov = cov * rmet
+            unmethy_cov = cov * (1 - rmet)
+            kmer = "."
+            freqinfo[m_key] = [pos_in_strand, methy_prob, unmethy_prob, methy_cov, unmethy_cov,
+                               cov, rmet, kmer]
+    return freqinfo
+
+
+def _get_combined_freq_file(freqfiles, inputfmt="freq"):
     freqinfo = {}
     freqkeys = set()
     for ffile in freqfiles:
-        finfo_tmp = _read_one_mod_freq_file(ffile)
+        if inputfmt == "freq":
+            finfo_tmp = _read_one_mod_freq_file(ffile)
+        elif inputfmt == "bed":
+            finfo_tmp = _read_one_mod_bedmethyl_file(ffile)
+        else:
+            raise ValueError
         for fkey in finfo_tmp.keys():
             if fkey not in freqkeys:
                 freqkeys.add(fkey)
@@ -83,7 +109,7 @@ def combine_freq_files(args):
         else:
             raise ValueError()
     print("get {} input file(s)..".format(len(modsfiles)))
-    freqinfo = _get_combined_freq_file(modsfiles)
+    freqinfo = _get_combined_freq_file(modsfiles, args.inputfmt)
     _write_freqinfo(freqinfo, args.wfile, args.sort, args.bed)
 
 
@@ -91,6 +117,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--modspath", action="append", type=str, required=True,
                         help="call_mods_freq file or dir, files all in .freq.txt format")
+    parser.add_argument("--inputfmt", action="store", type=str, required=False,
+                        choices=["freq", "bed"], default="freq")
     parser.add_argument("--wfile", type=str, required=True,
                         help=".freq.txt or .bed format")
     parser.add_argument('--file_uid', type=str, action="store", required=False, default=None,
