@@ -41,12 +41,15 @@ deepsignal2 is built on [Python3](https://www.python.org/) and [PyTorch](https:/
    - Prerequisites:\
        [Python3.*](https://www.python.org/) (version>=3.8)\
        [tombo](https://github.com/nanoporetech/tombo) (version 1.5.1)
-   - Dependencies:\
-       [numpy](http://www.numpy.org/)\
-       [h5py](https://github.com/h5py/h5py)\
-       [statsmodels](https://github.com/statsmodels/statsmodels/)\
-       [scikit-learn](https://scikit-learn.org/stable/)\
+   - Direct dependencies: \
+       [numpy](http://www.numpy.org/) \
+       [h5py](https://github.com/h5py/h5py) \
+       [statsmodels](https://github.com/statsmodels/statsmodels/) \
+       [scikit-learn](https://scikit-learn.org/stable/) \
        [PyTorch](https://pytorch.org/) (version >=1.2.0, <=1.11.0)
+   - Non-direct dependencies: \
+       [scipy](https://scipy.org/) \
+       [pandas](https://pandas.pydata.org/)
 
 #### 1. Create an environment
 We highly recommend using a virtual environment for the installation of deepsignal2 and its dependencies. A virtual environment can be created and (de)activated as follows by using [conda](https://conda.io/docs/):
