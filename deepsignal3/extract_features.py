@@ -158,63 +158,37 @@ def norm_signal_read_id(signal):
     signal_norm=(signal[1][num_trimmed:] - shift_scale_norm[0]) / shift_scale_norm[1]        
     return signal_norm
 
-def caculate_batch_feature_for_each_base(bar_q,read_q,feature_q,base_num=0):
+def caculate_batch_feature_for_each_base(read_batch):
     print("extrac_features process-{} starts".format(os.getpid()))
     LOGGER.info("extrac_features process-{} starts".format(os.getpid()))
     read_num = 0
-    
-    while True:
-        if read_q.empty():
-            time.sleep(10)
-        read_batch=read_q.get()
-        if read_batch == "kill":
-            read_q.put("kill")
-            break
-        read_num += len(read_batch)
-        flag=0
-        if len(read_batch)>1:
-            flag=1
-            pos=bar_q.get()
-            caculate_bar = tqdm(total = len(read_batch), desc='extract_feature', position=pos)
-            bar_q.put(pos+1)
-        else:
-            flag=0
-                
-        for read_one in read_batch:
-            feature=[]
-            if flag == 1:
-                caculate_bar.update()
-            #print(read_one)            
-            sequence = read_one[4]
-            stride = read_one[5]
-            movetable = read_one[6]           
-            #num_trimmed = read[read_id]['num_trimmed']
-            trimed_signals = norm_signal_read_id(read_one)#筛掉背景信号,norm
-            move_pos = np.append(np.argwhere(movetable == 1).flatten(), len(movetable))
-            #print(len(move_pos))
-            for move_idx in range(len(move_pos) - 1):
-                start, end = move_pos[move_idx], move_pos[move_idx + 1]
-                signal=trimed_signals[(start * stride):(end * stride)].tolist()
-                mean=np.mean(signal)
-                std=np.std(signal)
-                num=end-start
-                #print(move_idx)
-                feature.append([read_one[0],signal,str(std),str(mean),int(num*stride),sequence[move_idx]])
-                #0:read_id,1:signal,2:std,3:mean,4:num,5:base        
-                #feature[read_id].append({'signal':signal,'std':str(std),'mean':str(mean),'num':int(num*stride),'base':sequence[move_idx]})
-            #if base_num!=0:
-            #    nfeature=_get_neighbord_feature(feature,base_num)
-            #    LOGGER.debug("extract neigbor features for read_id:{}".format(read_one[0]))
-            #    feature_q.put(nfeature)
-            feature_q.put(feature)
-        #feature_q.append(feature)
-        
-        #print("extrac_features process-{} ending, proceed {} read batch".format(os.getpid(), read_num))
-        LOGGER.info("extrac_features process-{} ending, proceed {} read batch".format(os.getpid(), read_num))
-        if caculate_bar is not None:
-            caculate_bar.close()
-    #pbar.close()
-        
+    base_num = 21
+    for read_one in read_batch:
+        feature=[]
+        #print(read_one)            
+        sequence = read_one[4]
+        stride = read_one[5]
+        movetable = read_one[6]           
+        #num_trimmed = read[read_id]['num_trimmed']
+        trimed_signals = norm_signal_read_id(read_one)#筛掉背景信号,norm
+        move_pos = np.append(np.argwhere(movetable == 1).flatten(), len(movetable))
+        #print(len(move_pos))
+        for move_idx in range(len(move_pos) - 1):
+            start, end = move_pos[move_idx], move_pos[move_idx + 1]
+            signal=trimed_signals[(start * stride):(end * stride)].tolist()
+            mean=np.mean(signal)
+            std=np.std(signal)
+            num=end-start
+            #print(move_idx)
+            feature.append([read_one[0],signal,str(std),str(mean),int(num*stride),sequence[move_idx]])
+            #0:read_id,1:signal,2:std,3:mean,4:num,5:base        
+            #feature[read_id].append({'signal':signal,'std':str(std),'mean':str(mean),'num':int(num*stride),'base':sequence[move_idx]})
+        if base_num!=0:
+            nfeature=_get_neighbord_feature(feature,base_num)
+            LOGGER.debug("extract neigbor features for read_id:{}".format(read_one[0]))
+            yield nfeature
+    LOGGER.info("extrac_features process-{} ending, proceed {} read batch".format(os.getpid(), read_num))     
+
 
 def _prepare_read(read,batch_size=1000):
     i=0
@@ -234,44 +208,26 @@ def _prepare_read(read,batch_size=1000):
     yield read_batch
 
 
-def write_feature(read_number,bar_q,file,feature_q):
+def write_feature(feature_batch):
     #print("write_process-{} starts".format(os.getpid()))
     LOGGER.info("write_process-{} starts".format(os.getpid()))
     dataset=[]
-    pos=bar_q.get()
-    write_feature_bar = tqdm(total = read_number, desc='write_feature', position=pos,colour='green')
-    bar_q.put(pos+1)
+    #pos=bar_q.get()
+    #write_feature_bar = tqdm(total = read_number, desc='write_feature', position=pos,colour='green')
+    #bar_q.put(pos+1)
     try:
-        
-        while True:
-            if feature_q.empty():
-                time.sleep(10)
-                continue
-            features = feature_q.get()
-            if features == "kill":
-                LOGGER.info('write_process-{} finished'.format(os.getpid()))    
-                np_data = np.array(dataset)
-                np.save(file, np_data)
-                #包含neigbor feature的40条reads保存成npy需要27.87GB，这个开销是无法忍受的
-                #不包含neigbor feature的40条reads保存成npy仅需要30.34MB
-                #print('write_process-{} finished'.format(os.getpid()))                
-                break
-            LOGGER.info('write process get bases number:{}'.format(len(features)))
-            #LOGGER.debug('feature id: {}'.format(str(features[0][0])))
-            for feature in features:
-                #0:read_id,1:nbase,2:nsig,3:nstd,4:nmean
-                #f.write(read_id+'\t')
-                write_feature_bar.update()
-                dataset.append(feature)                
-                #f.write(str(feature[1])+'\t'+str(feature[2])+
-                #            '\t'+str(feature[3])+'\t'+str(feature[4])+'\n')
-                    
-            
+        LOGGER.info('write process get bases number:{}'.format(len(feature_batch)))
+        for feature in feature_batch:
+                
+                dataset.append(feature) 
+        np_data = np.array(dataset)
+        np.save("/home/xiaoyf/methylation/deepsignal/log/data.npy", np_data)
+       
     except Exception as e:
         LOGGER.error('error in writing features')
         print(e)
-    finally:
-        write_feature_bar.close()
+    #finally:
+        
     #write_pbar.close()
             
 def bar_listener(p_bar,desc='',position=1,number=4000):
@@ -281,45 +237,46 @@ def bar_listener(p_bar,desc='',position=1,number=4000):
 
 def extract_feature(read,output_file,nproc = 4,batch_size=20):
     start = time.time()
-    feature_q = Queue()
+    #feature_q = Queue()
     #read_q=Queue()
-    bar=Queue()
-    bar.put(0)
+    #bar=Queue()
+    #bar.put(0)
     #caculate_batch_feature_pbar = Manager().Queue()
     #write_pbar = Manager().Queue()
-    _prepare_read(read,batch_size)
+    #_prepare_read(read,batch_size)
     read_number=len(read)
     feature_procs=[]  
     #read_q.put("kill")
-    
+    write_filename=output_file
     #extract_feature_bar = mp.Process(target=bar_listener, args=(caculate_batch_feature_pbar, "extract_features", 1,))
     #extract_feature_bar.daemon = True
     #extract_feature_bar.start()
     
-    pool = Pool(nproc)
-    #with Pool(nproc) as p:
-    #    p.map(caculate_batch_feature_for_each_base, _prepare_read)
-    tqdm(pool.imap(caculate_batch_feature_for_each_base, _prepare_read), total=read_number, desc='extract_features')    
+    #pool = Pool(nproc)
+    with Pool(nproc) as p:
+        #p.map(caculate_batch_feature_for_each_base, _prepare_read)
+        tqdm(p.imap(write_feature,tqdm(caculate_batch_feature_for_each_base(_prepare_read(read,batch_size)) , total=read_number, desc='extract_features'))
+             , total=read_number, desc='write_features')
         
                
     
-    write_filename=output_file
+    
     
     #write_feature_bar = mp.Process(target=bar_listener, args=(write_pbar, "write_features", 2,))
     #write_feature_bar.daemon = True
     #write_feature_bar.start()
     #tqdm(total = 4000, desc="write_features", position=1)
     
-    p_w = mp.Process(target=write_feature, args=(read_number,bar,write_filename,feature_q,))
-    p_w.daemon = False
-    p_w.start()
+    #p_w = mp.Process(target=write_feature, args=(read_number,bar,write_filename,feature_q,))
+    #p_w.daemon = False
+    #p_w.start()
     #with tqdm(total = read_number, desc='extract_feature', position=0) as pbar:
-    for p in feature_procs:
-        p.join()
+    #for p in feature_procs:
+    #    p.join()
     
     #caculate_bar.close()
-    feature_q.put("kill")
-    p_w.join()
+    #feature_q.put("kill")
+    #p_w.join()
     #write_feature_bar.close()
     
     #extract_feature_bar.join()
@@ -329,7 +286,7 @@ def extract_feature(read,output_file,nproc = 4,batch_size=20):
 
 if __name__ == '__main__':
     args = parse_args()
-    init_logger(args.log_filename)
+    init_logger(args.log_file)
     batch_size = args.batch_size
     window_size = args.window_size
     output_file = args.output_file

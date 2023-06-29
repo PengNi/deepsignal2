@@ -16,4 +16,4 @@ def parse_args():
                         help='size of batch in extract features.')
     parser.add_argument('--window-size', type=int, default=21,
                         help='size of window in extract neighbor features for target base.')
-    return parser.parse_args()
+    return parser.parse_args([])

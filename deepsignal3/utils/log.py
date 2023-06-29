@@ -4,7 +4,8 @@ import logging
 
 CONSOLE = logging.StreamHandler()
 CONSOLE.setLevel(logging.INFO)
-CONSOLE.setFormatter('%(asctime)s - %(filename)s - line:%(lineno)d - %(levelname)s - %(message)s -%(process)s')
+formatter = logging.Formatter('%(asctime)s - %(filename)s - line:%(lineno)d - %(levelname)s - %(message)s -%(process)s') 
+CONSOLE.setFormatter(formatter)
 ROOT_LOGGER = logging.getLogger("Remora")
 ROOT_LOGGER.setLevel(logging.DEBUG)
 ROOT_LOGGER.addHandler(CONSOLE)
@@ -22,7 +23,7 @@ def init_logger(log_fn=None, quiet=False):
     if log_fn is not None:
         log_fp = logging.FileHandler(log_fn, mode="a")
         log_fp.setLevel(logging.DEBUG)
-        log_fp.setFormatter('%(asctime)s - %(filename)s - line:%(lineno)d - %(levelname)s - %(message)s -%(process)s')
+        log_fp.setFormatter(formatter)
     if log_fp is not None:
         ROOT_LOGGER.addHandler(log_fp)
     if quiet:

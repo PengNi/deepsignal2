@@ -1,8 +1,128 @@
-2023-06-26 22:11:34,241 - 4122363956.py - line:142 - INFO - total batch number is 200 -15076
-2023-06-26 22:11:34,241 - 4122363956.py - line:142 - INFO - total batch number is 200 -15076
-2023-06-26 22:11:34,938 - 4122363956.py - line:147 - INFO - write_process-17799 starts -17799
-2023-06-26 22:11:34,938 - 4122363956.py - line:147 - INFO - write_process-17799 starts -17799
-2023-06-26 22:11:35,196 - 4122363956.py - line:88 - INFO - extrac_features process-17797 starts -17797
-2023-06-26 22:11:35,196 - 4122363956.py - line:88 - INFO - extrac_features process-17798 starts -17798
-2023-06-26 22:11:35,196 - 4122363956.py - line:88 - INFO - extrac_features process-17797 starts -17797
-2023-06-26 22:11:35,196 - 4122363956.py - line:88 - INFO - extrac_features process-17798 starts -17798
+2023-06-29 15:03:58,595 - 3616807230.py - line:168 - INFO - total batch number is 20 -87064
+2023-06-29 15:03:58,653 - 3616807230.py - line:95 - INFO - extrac_features process-91194 starts -91194
+2023-06-29 15:03:58,677 - 3616807230.py - line:95 - INFO - extrac_features process-91197 starts -91197
+2023-06-29 15:03:58,684 - 3616807230.py - line:172 - INFO - write_process-91202 starts -91202
+2023-06-29 15:03:58,890 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:3239b4d9-0a7e-471c-86fe-e156b9f279a0 -91194
+2023-06-29 15:03:59,007 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:732722e8-65c8-4ad1-b4d5-f9ec85e830d3 -91194
+2023-06-29 15:03:59,070 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:77a9f606-58bd-42a9-b7f8-a3bb26d97e7f -91194
+2023-06-29 15:03:59,094 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7cb07bb1-5ea7-4eb0-a974-fce4e4381a9b -91194
+2023-06-29 15:03:59,193 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7d5dd8ce-045d-49ac-964d-a13c9d119380 -91194
+2023-06-29 15:03:59,353 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:737b427a-9d1f-43b7-908f-fca335a91b44 -91194
+2023-06-29 15:03:59,429 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:78f76ad8-fd20-4e30-a598-73062c72c0c4 -91194
+2023-06-29 15:03:59,750 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:736070fc-7aae-49a5-bb72-21653e8559c9 -91194
+2023-06-29 15:03:59,833 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:74d31b0b-e410-4d8e-b9b5-f3e87a793e53 -91194
+2023-06-29 15:04:04,360 - 3616807230.py - line:191 - INFO - write process get neigbor features number:7 -91202
+2023-06-29 15:04:06,144 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7203e3d2-7560-49ae-aaa5-b225d4255112 -91194
+2023-06-29 15:04:11,339 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:721e6073-9e64-4e0e-b3a5-8b7f7a796cb2 -91194
+2023-06-29 15:04:11,576 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7527f8a8-3889-47f4-a92d-4ed412c83ff4 -91194
+2023-06-29 15:04:12,987 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7257c8a5-1ef9-43ee-ba58-93cf02c0dd2b -91194
+2023-06-29 15:04:14,239 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7260220e-c612-4e5d-b7ba-5bcffab3b983 -91194
+2023-06-29 15:04:14,333 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:740c6ce2-f6d5-474e-bf76-9e46c05dac83 -91194
+2023-06-29 15:04:14,401 - 3616807230.py - line:191 - INFO - write process get neigbor features number:5 -91202
+2023-06-29 15:04:14,654 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:74e73334-188c-4351-a894-1906c3566243 -91194
+2023-06-29 15:04:14,780 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:78ca1e33-6d65-4874-802d-0f997d78b622 -91194
+2023-06-29 15:04:14,837 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:74024fb1-cdd1-4ded-87b9-a1296fae3a58 -91194
+2023-06-29 15:04:14,930 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:754a1210-0c8c-4a11-8054-732bffb5cfb9 -91194
+2023-06-29 15:04:15,036 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:783c412a-fca8-409f-ae5f-e32c55ef8690 -91194
+2023-06-29 15:04:16,062 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:321336a8-7371-4bc8-be65-9ee4de576f20 -91194
+2023-06-29 15:04:24,464 - 3616807230.py - line:191 - INFO - write process get neigbor features number:6 -91202
+2023-06-29 15:04:24,469 - 3616807230.py - line:191 - INFO - write process get neigbor features number:2 -91202
+2023-06-29 15:04:34,543 - 3616807230.py - line:191 - INFO - write process get neigbor features number:6 -91202
+2023-06-29 15:04:35,913 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7e6e3607-97da-44cf-9830-3078cf2bf36e -91197
+2023-06-29 15:04:44,648 - 3616807230.py - line:191 - INFO - write process get neigbor features number:9 -91202
+2023-06-29 15:04:54,703 - 3616807230.py - line:191 - INFO - write process get neigbor features number:16 -91202
+2023-06-29 15:05:04,939 - 3616807230.py - line:191 - INFO - write process get neigbor features number:23 -91202
+2023-06-29 15:05:14,958 - 3616807230.py - line:191 - INFO - write process get neigbor features number:3 -91202
+2023-06-29 15:05:26,763 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7304538e-e48b-40e4-a51f-37aa7d600e1d -91194
+2023-06-29 15:05:32,435 - 3616807230.py - line:191 - INFO - write process get neigbor features number:179 -91202
+2023-06-29 15:05:43,336 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7f117a2d-5a02-47ed-8ccc-8a9613987d29 -91197
+2023-06-29 15:05:51,994 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:747a3715-b63f-4529-9336-95e91a76eea0 -91194
+2023-06-29 15:05:52,289 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7f3b4243-419d-4246-b28f-7c2e229c597a -91197
+2023-06-29 15:05:52,809 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:748cfb25-4439-4655-8fd1-fbf53c172c73 -91194
+2023-06-29 15:05:53,116 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7dfb8e13-02ea-46d6-b960-b4e9fb1d3cd0 -91194
+2023-06-29 15:05:53,917 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7cc6aba2-7fba-4926-8a84-80932066a833 -91194
+2023-06-29 15:05:54,160 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7d482668-90b6-444c-b185-b695d858c412 -91194
+2023-06-29 15:05:54,538 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7f48d0aa-3e7c-48b7-8cd0-5cee15b66506 -91194
+2023-06-29 15:05:54,661 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7f5b56f4-9328-4b1d-82d0-e83aff28979b -91194
+2023-06-29 15:05:54,726 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:76702ba9-f8a0-44de-888d-b26a908be212 -91194
+2023-06-29 15:05:55,048 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:3145d919-f8be-43de-9e76-ec2c5a854460 -91194
+2023-06-29 15:05:55,236 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:72797799-7a6d-48fd-a3a1-64ab3b55a643 -91194
+2023-06-29 15:05:55,429 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:72cc8352-0183-47af-83c9-6bd438f14aa2 -91194
+2023-06-29 15:05:59,483 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7f7a77ff-25f0-4a6f-94b8-f0ae18fb0785 -91197
+2023-06-29 15:05:59,996 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7faab297-b66b-4e54-83e9-0bce6d4cc020 -91197
+2023-06-29 15:06:01,634 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:308493a9-a1d7-476b-9a7c-a34368bdf0de -91197
+2023-06-29 15:06:08,490 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:30b1d485-5738-4bfa-99ed-995056679823 -91197
+2023-06-29 15:06:09,642 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:3212849c-bb9e-461d-9fba-a584497bd60e -91197
+2023-06-29 15:06:12,465 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:315bec89-f966-4974-88ec-bcc18ea7a3b4 -91197
+2023-06-29 15:06:19,919 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:74ef87b4-fcdc-4c9c-afb8-dc80ebdce7b0 -91194
+2023-06-29 15:06:21,978 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:322f5568-a03b-4932-98e4-ff362acfaa80 -91197
+2023-06-29 15:06:29,184 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:74d4ff7a-8585-4688-9737-ac0ca3eff0a9 -91194
+2023-06-29 15:06:36,342 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:74d20f7e-1809-4213-900a-1376b81f4ebe -91194
+2023-06-29 15:06:37,163 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:71f5c444-4a01-4ecb-97c0-29dfd477bd12 -91197
+2023-06-29 15:06:38,252 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7541c0c2-9554-4127-b0bf-a8b02d7895eb -91194
+2023-06-29 15:06:38,935 - 3616807230.py - line:191 - INFO - write process get neigbor features number:458 -91202
+2023-06-29 15:06:42,651 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:77274793-0003-4188-a6c7-521517372d54 -91197
+2023-06-29 15:06:45,727 - 3616807230.py - line:191 - INFO - write process get neigbor features number:37 -91202
+2023-06-29 15:06:48,271 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:775954c4-a369-4f77-826b-b354e84f8467 -91197
+2023-06-29 15:07:08,122 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7524265d-0289-4e4d-9fb3-034313b21f0b -91194
+2023-06-29 15:07:09,041 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:75739626-4a4b-4b13-aa8c-da5d7e08904f -91194
+2023-06-29 15:07:16,497 - 3616807230.py - line:191 - INFO - write process get neigbor features number:43 -91202
+2023-06-29 15:07:16,540 - 3616807230.py - line:191 - INFO - write process get neigbor features number:13 -91202
+2023-06-29 15:07:21,511 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:74df595e-6329-498b-8596-769ac64e2279 -91194
+2023-06-29 15:07:29,371 - 3616807230.py - line:191 - INFO - write process get neigbor features number:59 -91202
+2023-06-29 15:07:29,481 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:754312e1-a352-4a63-80cf-b67f5b62c734 -91194
+2023-06-29 15:07:29,507 - 3616807230.py - line:191 - INFO - write process get neigbor features number:23 -91202
+2023-06-29 15:07:29,523 - 3616807230.py - line:191 - INFO - write process get neigbor features number:10 -91202
+2023-06-29 15:07:35,739 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:76bf099d-0980-4bcc-9e20-105654305631 -91197
+2023-06-29 15:07:39,751 - 3616807230.py - line:191 - INFO - write process get neigbor features number:26 -91202
+2023-06-29 15:07:50,043 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:77c45e29-7171-49c4-a9fc-984364ec95af -91197
+2023-06-29 15:08:10,642 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7559bf53-cda5-49bf-bb31-4dacfae33fae -91194
+2023-06-29 15:08:18,162 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:77453c9f-f9e1-44c7-9356-a43722df91fa -91197
+2023-06-29 15:08:21,996 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:75870881-6ef7-459c-84f5-038293856810 -91194
+2023-06-29 15:08:23,828 - 3616807230.py - line:191 - INFO - write process get neigbor features number:214 -91202
+2023-06-29 15:08:23,865 - 3616807230.py - line:191 - INFO - write process get neigbor features number:6 -91202
+2023-06-29 15:08:25,826 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:77ebaa59-b4f5-4e9d-8c3f-6ab71bd41c76 -91197
+2023-06-29 15:08:26,373 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7882ef81-ece4-4526-9b6d-2ee3173408fc -91197
+2023-06-29 15:08:27,891 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:31628c90-d57f-43c3-bdb4-1affa963f839 -91194
+2023-06-29 15:08:31,117 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:780aecef-9cc8-498b-b1df-8bd06d51a37f -91197
+2023-06-29 15:08:38,910 - 3616807230.py - line:191 - INFO - write process get neigbor features number:62 -91202
+2023-06-29 15:09:08,985 - 3616807230.py - line:191 - INFO - write process get neigbor features number:12 -91202
+2023-06-29 15:09:09,070 - 3616807230.py - line:191 - INFO - write process get neigbor features number:9 -91202
+2023-06-29 15:09:09,102 - 3616807230.py - line:191 - INFO - write process get neigbor features number:6 -91202
+2023-06-29 15:09:19,164 - 3616807230.py - line:191 - INFO - write process get neigbor features number:6 -91202
+2023-06-29 15:09:22,950 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:78234e74-8606-4e56-bf4d-5dab7613e44d -91197
+2023-06-29 15:09:32,039 - 3616807230.py - line:191 - INFO - write process get neigbor features number:78 -91202
+2023-06-29 15:09:33,237 - 3616807230.py - line:191 - INFO - write process get neigbor features number:56 -91202
+2023-06-29 15:09:42,030 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:78d0bf76-7f59-4963-b4be-906f84203201 -91197
+2023-06-29 15:09:44,019 - 3616807230.py - line:191 - INFO - write process get neigbor features number:48 -91202
+2023-06-29 15:10:21,429 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:78d5acab-17fa-4ce3-9c52-deae9815f9d6 -91197
+2023-06-29 15:10:27,078 - 3616807230.py - line:191 - INFO - write process get neigbor features number:91 -91202
+2023-06-29 15:10:31,434 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:798bac04-baaf-4cd6-985b-01bc4185352e -91197
+2023-06-29 15:10:41,180 - 3616807230.py - line:191 - INFO - write process get neigbor features number:8 -91202
+2023-06-29 15:11:40,925 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:75810c46-c29a-406d-abac-415c0e44fdc6 -91194
+2023-06-29 15:12:11,433 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:790d1e3c-317a-4288-889d-701b3d7998bf -91197
+2023-06-29 15:12:15,703 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:785dc850-756e-481a-8b42-9db6d09b6bcc -91194
+2023-06-29 15:12:16,408 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:72bd63ef-4b01-4fb6-a075-1736da517f97 -91194
+2023-06-29 15:12:17,361 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:32b5918f-677c-46b2-97c4-6c983501c299 -91194
+2023-06-29 15:13:17,336 - 3616807230.py - line:191 - INFO - write process get neigbor features number:603 -91202
+2023-06-29 15:18:53,139 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:325767d4-5e37-4254-9684-4f152f23135c -91194
+2023-06-29 15:18:54,825 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:316d93d8-683a-419f-8db3-4d7c1d5b67b5 -91194
+2023-06-29 15:18:54,868 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:785160fc-76e5-443c-afea-074dd4c3e1b5 -91194
+2023-06-29 15:18:57,235 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7afc54f6-3a57-48e9-8944-197be40369be -91194
+2023-06-29 15:18:58,382 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7d478974-2895-4475-839e-26781d44c3fa -91194
+2023-06-29 15:18:59,201 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:78dce4b4-b3e8-48dd-b4bf-9219462257c2 -91194
+2023-06-29 15:19:24,174 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:76385ae3-461f-4ecc-8f54-9d2b5c72e735 -91194
+2023-06-29 15:20:33,031 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:77efd750-6b62-4b66-bac0-e2230d430e7e -91194
+2023-06-29 15:20:33,413 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:783435b9-dcb6-4af5-ac69-92161a3e0956 -91194
+2023-06-29 15:20:33,540 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:3231e6b2-9e55-455c-8f9d-dba92545fee1 -91194
+2023-06-29 15:20:47,086 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:321348df-b17a-4df7-a9b0-f685c9e42360 -91194
+2023-06-29 15:20:56,952 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:72111336-5394-44b5-800b-3cc75b065b39 -91194
+2023-06-29 15:20:57,400 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:777d6a72-2bc0-4e33-bbb9-d47ee83ae1bc -91194
+2023-06-29 15:22:01,786 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:778ac558-b662-44ff-ba30-b542e28948af -91194
+2023-06-29 15:22:03,015 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:31de7fcd-09ea-41b9-bb26-f78913f04ea0 -91194
+2023-06-29 15:22:03,488 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:71d1a7db-4491-479c-9fe8-7e21806eda35 -91194
+2023-06-29 15:22:04,119 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7304f7d8-d989-4afa-aa1e-68cf9eddd797 -91194
+2023-06-29 15:22:04,513 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:730e6935-d667-4c82-b4cb-2205b1fa1896 -91194
+2023-06-29 15:22:06,861 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:73110c9a-312f-4ef4-94c2-f61d59a57787 -91194
+2023-06-29 15:22:13,234 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:72eba947-d82c-4395-8683-e81a8fb727f1 -91194
+2023-06-29 15:24:18,652 - 3616807230.py - line:140 - DEBUG - extract neigbor features for read_id:7333a892-fedf-4070-9a8f-cc95faf00e0c -91194
