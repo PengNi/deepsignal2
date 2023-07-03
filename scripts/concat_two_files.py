@@ -11,17 +11,19 @@ def str2bool(v):
 
 def count_line_num(sl_filepath, fheader=True):
     count = 0
-    with open(sl_filepath, 'r') as rf:
+    with open(sl_filepath, "r") as rf:
         if fheader:
             next(rf)
         for line in rf:
             count += 1
-    print('done count the lines of file..')
+    print("done count the lines of file..")
     return count
 
 
-def read_one_shuffle_info(filepath, shuffle_lines_num, total_lines_num, checked_lines_num, isheader):
-    with open(filepath, 'r') as rf:
+def read_one_shuffle_info(
+    filepath, shuffle_lines_num, total_lines_num, checked_lines_num, isheader
+):
+    with open(filepath, "r") as rf:
         if isheader:
             next(rf)
         count = 0
@@ -38,7 +40,7 @@ def read_one_shuffle_info(filepath, shuffle_lines_num, total_lines_num, checked_
                 count += 1
             else:
                 break
-        print('done reading file {}'.format(filepath))
+        print("done reading file {}".format(filepath))
         return lines_info
 
 
@@ -52,18 +54,20 @@ def shuffle_samples(samples_info):
 
 
 def write_to_one_file_append(features_info, wfilepath):
-    with open(wfilepath, 'a') as wf:
+    with open(wfilepath, "a") as wf:
         for i in range(0, len(features_info)):
-            wf.write(features_info[i] + '\n')
-    print('done writing features info to {}'.format(wfilepath))
+            wf.write(features_info[i] + "\n")
+    print("done writing features info to {}".format(wfilepath))
 
 
-def caoncat_two_files(file1, file2, shuffle_lines_num, lines_num, concated_fp, isheader):
-    open(concated_fp, 'w').close()
+def caoncat_two_files(
+    file1, file2, shuffle_lines_num, lines_num, concated_fp, isheader
+):
+    open(concated_fp, "w").close()
 
     if isheader:
-        rf1 = open(file1, 'r')
-        wf = open(concated_fp, 'a')
+        rf1 = open(file1, "r")
+        wf = open(concated_fp, "a")
         wf.write(next(rf1))
         wf.close()
         rf1.close()
@@ -76,9 +80,13 @@ def caoncat_two_files(file1, file2, shuffle_lines_num, lines_num, concated_fp, i
 
     checked_lines_num1, checked_lines_num2 = 0, 0
     while checked_lines_num1 < lines_num or checked_lines_num2 < lines_num:
-        file1_info = read_one_shuffle_info(file1, shuffle_lines_num, lines_num, checked_lines_num1, isheader)
+        file1_info = read_one_shuffle_info(
+            file1, shuffle_lines_num, lines_num, checked_lines_num1, isheader
+        )
         checked_lines_num1 += len(file1_info)
-        file2_info = read_one_shuffle_info(file2, shuffle_lines_num2, lines_num, checked_lines_num2, isheader)
+        file2_info = read_one_shuffle_info(
+            file2, shuffle_lines_num2, lines_num, checked_lines_num2, isheader
+        )
         checked_lines_num2 += len(file2_info)
         if len(file1_info) == 0 and len(file2_info) == 0:
             break
@@ -91,21 +99,37 @@ def caoncat_two_files(file1, file2, shuffle_lines_num, lines_num, concated_fp, i
         gc.collect()
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='concat two LINE-files with shuffling the rows')
-    parser.add_argument('--fp1', type=str, required=True,
-                        help='file path1')
-    parser.add_argument('--fp2', type=str, required=True,
-                        help='file path2')
-    parser.add_argument('--concated_fp', type=str, required=True,
-                        help='concated file path')
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="concat two LINE-files with shuffling the rows"
+    )
+    parser.add_argument("--fp1", type=str, required=True, help="file path1")
+    parser.add_argument("--fp2", type=str, required=True, help="file path2")
+    parser.add_argument(
+        "--concated_fp", type=str, required=True, help="concated file path"
+    )
 
-    parser.add_argument('--num_samples_per_file', type=int, default=1000000000, required=False,
-                        help='num of samples per file, default 1000000000 (equal to Inf)')
-    parser.add_argument('--num_lines_shuffle', type=int, default=2000000, required=False,
-                        help='num of lines for one shuffle, default 2000000')
-    parser.add_argument('--header', type=str, default='no', required=False,
-                        help='whether there are headers in fp1 and fp2 or not')
+    parser.add_argument(
+        "--num_samples_per_file",
+        type=int,
+        default=1000000000,
+        required=False,
+        help="num of samples per file, default 1000000000 (equal to Inf)",
+    )
+    parser.add_argument(
+        "--num_lines_shuffle",
+        type=int,
+        default=2000000,
+        required=False,
+        help="num of lines for one shuffle, default 2000000",
+    )
+    parser.add_argument(
+        "--header",
+        type=str,
+        default="no",
+        required=False,
+        help="whether there are headers in fp1 and fp2 or not",
+    )
     args = parser.parse_args()
 
     filepath1 = args.fp1
@@ -115,5 +139,7 @@ if __name__ == '__main__':
     oneshufflenum = args.num_lines_shuffle
     header = str2bool(args.header)
 
-    caoncat_two_files(filepath1, filepath2, oneshufflenum, linenum, concated_filepath, header)
-    print('done writing the data..')
+    caoncat_two_files(
+        filepath1, filepath2, oneshufflenum, linenum, concated_filepath, header
+    )
+    print("done writing the data..")

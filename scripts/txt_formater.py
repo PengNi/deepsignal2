@@ -33,7 +33,6 @@ def split_key(key):
 
 class SiteStats:
     def __init__(self, strand, pos_in_strand, kmer):
-
         self._strand = strand
         self._pos_in_strand = pos_in_strand
         self._kmer = kmer
@@ -50,16 +49,16 @@ class DNAReference:
     def __init__(self, reffile):
         self._contignames = []
         self._contigs = {}  # contigname 2 contigseq
-        with open(reffile, 'r') as rf:
-            contigname = ''
-            contigseq = ''
+        with open(reffile, "r") as rf:
+            contigname = ""
+            contigseq = ""
             for line in rf:
-                if line.startswith('>'):
-                    if contigname != '' and contigseq != '':
+                if line.startswith(">"):
+                    if contigname != "" and contigseq != "":
                         self._contigs[contigname] = contigseq
                         self._contignames.append(contigname)
-                    contigname = line.strip()[1:].split(' ')[0]
-                    contigseq = ''
+                    contigname = line.strip()[1:].split(" ")[0]
+                    contigseq = ""
                 else:
                     # turn to upper case
                     contigseq += line.strip().upper()

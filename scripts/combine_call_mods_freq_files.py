@@ -17,8 +17,16 @@ def _read_one_mod_freq_file(freqfile):
             cov = int(words[8])
             rmet = float(words[9])
             kmer = words[10]
-            freqinfo[m_key] = [pos_in_strand, methy_prob, unmethy_prob, methy_cov, unmethy_cov,
-                               cov, rmet, kmer]
+            freqinfo[m_key] = [
+                pos_in_strand,
+                methy_prob,
+                unmethy_prob,
+                methy_cov,
+                unmethy_cov,
+                cov,
+                rmet,
+                kmer,
+            ]
     return freqinfo
 
 
@@ -38,8 +46,16 @@ def _read_one_mod_bedmethyl_file(bedfile):
             methy_cov = cov * rmet
             unmethy_cov = cov * (1 - rmet)
             kmer = "."
-            freqinfo[m_key] = [pos_in_strand, methy_prob, unmethy_prob, methy_cov, unmethy_cov,
-                               cov, rmet, kmer]
+            freqinfo[m_key] = [
+                pos_in_strand,
+                methy_prob,
+                unmethy_prob,
+                methy_cov,
+                unmethy_cov,
+                cov,
+                rmet,
+                kmer,
+            ]
     return freqinfo
 
 
@@ -77,18 +93,41 @@ def _write_freqinfo(freqinfo, wfile, is_sort, is_bed):
     for fkey in fkeys:
         tmpinfo = list(fkey) + freqinfo[fkey]
         if is_bed:
-            wf.write("\t".join([tmpinfo[0], str(tmpinfo[1]), str(tmpinfo[1] + 1), ".", str(tmpinfo[8]),
-                                tmpinfo[2],
-                                str(tmpinfo[1]), str(tmpinfo[1] + 1), "0,0,0", str(tmpinfo[8]),
-                                str(int(round(tmpinfo[9] * 100, 0)))]) + "\n")
+            wf.write(
+                "\t".join(
+                    [
+                        tmpinfo[0],
+                        str(tmpinfo[1]),
+                        str(tmpinfo[1] + 1),
+                        ".",
+                        str(tmpinfo[8]),
+                        tmpinfo[2],
+                        str(tmpinfo[1]),
+                        str(tmpinfo[1] + 1),
+                        "0,0,0",
+                        str(tmpinfo[8]),
+                        str(int(round(tmpinfo[9] * 100, 0))),
+                    ]
+                )
+                + "\n"
+            )
         else:
-            wf.write("%s\t%d\t%s\t%d\t%.3f\t%.3f\t%d\t%d\t%d\t%.4f\t%s\n" % (tmpinfo[0], tmpinfo[1], tmpinfo[2],
-                                                                             tmpinfo[3],
-                                                                             tmpinfo[4],
-                                                                             tmpinfo[5],
-                                                                             tmpinfo[6], tmpinfo[7],
-                                                                             tmpinfo[8], tmpinfo[9],
-                                                                             tmpinfo[10]))
+            wf.write(
+                "%s\t%d\t%s\t%d\t%.3f\t%.3f\t%d\t%d\t%d\t%.4f\t%s\n"
+                % (
+                    tmpinfo[0],
+                    tmpinfo[1],
+                    tmpinfo[2],
+                    tmpinfo[3],
+                    tmpinfo[4],
+                    tmpinfo[5],
+                    tmpinfo[6],
+                    tmpinfo[7],
+                    tmpinfo[8],
+                    tmpinfo[9],
+                    tmpinfo[10],
+                )
+            )
     wf.close()
 
 
@@ -101,9 +140,9 @@ def combine_freq_files(args):
         if os.path.isdir(input_path):
             for ifile in os.listdir(input_path):
                 if file_uid is None:
-                    modsfiles.append('/'.join([input_path, ifile]))
+                    modsfiles.append("/".join([input_path, ifile]))
                 elif ifile.find(file_uid) != -1:
-                    modsfiles.append('/'.join([input_path, ifile]))
+                    modsfiles.append("/".join([input_path, ifile]))
         elif os.path.isfile(input_path):
             modsfiles.append(input_path)
         else:
@@ -115,21 +154,46 @@ def combine_freq_files(args):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--modspath", action="append", type=str, required=True,
-                        help="call_mods_freq file or dir, files all in .freq.txt format")
-    parser.add_argument("--inputfmt", action="store", type=str, required=False,
-                        choices=["freq", "bed"], default="freq")
-    parser.add_argument("--wfile", type=str, required=True,
-                        help=".freq.txt or .bed format")
-    parser.add_argument('--file_uid', type=str, action="store", required=False, default=None,
-                        help='a unique str which all input files has, this is for finding all input files and ignoring '
-                             'the un-input-files in a input directory. if input_path is a file, ignore this arg.')
-    parser.add_argument('--sort', action='store_true', default=False, help="sort items in the result")
-    parser.add_argument('--bed', action='store_true', default=False, help="save the result in bedMethyl format")
+    parser.add_argument(
+        "--modspath",
+        action="append",
+        type=str,
+        required=True,
+        help="call_mods_freq file or dir, files all in .freq.txt format",
+    )
+    parser.add_argument(
+        "--inputfmt",
+        action="store",
+        type=str,
+        required=False,
+        choices=["freq", "bed"],
+        default="freq",
+    )
+    parser.add_argument(
+        "--wfile", type=str, required=True, help=".freq.txt or .bed format"
+    )
+    parser.add_argument(
+        "--file_uid",
+        type=str,
+        action="store",
+        required=False,
+        default=None,
+        help="a unique str which all input files has, this is for finding all input files and ignoring "
+        "the un-input-files in a input directory. if input_path is a file, ignore this arg.",
+    )
+    parser.add_argument(
+        "--sort", action="store_true", default=False, help="sort items in the result"
+    )
+    parser.add_argument(
+        "--bed",
+        action="store_true",
+        default=False,
+        help="save the result in bedMethyl format",
+    )
 
     args = parser.parse_args()
     combine_freq_files(args)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

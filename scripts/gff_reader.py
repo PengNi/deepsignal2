@@ -5,7 +5,10 @@ import pickle
 def extract_region_by_attri(gff3_eles, attri_name, attri_val):
     outstrs = []
     for gff_ele in gff3_eles:
-        if attri_name in gff_ele.get_attr_keys() and gff_ele.get_attrs()[attri_name] == attri_val:
+        if (
+            attri_name in gff_ele.get_attr_keys()
+            and gff_ele.get_attrs()[attri_name] == attri_val
+        ):
             outstrs.append(gff_ele.print_str())
     print("extract {} regions by {} ({})".format(len(outstrs), attri_name, attri_val))
     return outstrs
@@ -111,16 +114,26 @@ class GFF3Element:
 
     def print_str(self):
         # id, chrom, start(0-based), end(0-based), strand, feature, attributes
-        return "\t".join([self.get_id(), self.get_chromosome(), str(self.get_start()),
-                          str(self.get_end()), self.get_strand(), self.get_feature(),
-                          self.get_attributes()])
+        return "\t".join(
+            [
+                self.get_id(),
+                self.get_chromosome(),
+                str(self.get_start()),
+                str(self.get_end()),
+                self.get_strand(),
+                self.get_feature(),
+                self.get_attributes(),
+            ]
+        )
 
 
 class GFF3:
     def __init__(self, filepath):
         self.eles = []
         self._features = set()
-        self._gt2idx = dict()  # gene or transcript id 2 index in self.eles, only for ensembl gff3
+        self._gt2idx = (
+            dict()
+        )  # gene or transcript id 2 index in self.eles, only for ensembl gff3
         with open(filepath, "r") as rf:
             for line in rf:
                 if not line.startswith("#"):
@@ -129,7 +142,9 @@ class GFF3:
                     self.eles.append(gffele)
                     self._features.add(gffele.get_feature())
                     if gffele.get_id() is not None:
-                        if gffele.get_id().startswith("transcript") or gffele.get_id().startswith("gene"):
+                        if gffele.get_id().startswith(
+                            "transcript"
+                        ) or gffele.get_id().startswith("gene"):
                             self._gt2idx[gffele.get_id()] = len(self.eles) - 1
 
         self._parent2exonidx = dict()
@@ -174,8 +189,13 @@ class GFF3:
             transcript_loc_in_genome += genome_locs
             exon_len = genome_end - genome_start
             transcript_len += exon_len
-        return transcript_ele.get_ensemblid(), transcript_len, transcript_ele.get_chromosome(), \
-            strand, transcript_loc_in_genome
+        return (
+            transcript_ele.get_ensemblid(),
+            transcript_len,
+            transcript_ele.get_chromosome(),
+            strand,
+            transcript_loc_in_genome,
+        )
 
     def save_coordinates_mapping(self, pkl_path):
         transcriptid2posinfo = dict()

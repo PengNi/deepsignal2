@@ -4,7 +4,9 @@ import logging
 
 CONSOLE = logging.StreamHandler()
 CONSOLE.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(filename)s - line:%(lineno)d - %(levelname)s - %(message)s -%(process)s') 
+formatter = logging.Formatter(
+    "%(asctime)s - %(filename)s - line:%(lineno)d - %(levelname)s - %(message)s -%(process)s"
+)
 CONSOLE.setFormatter(formatter)
 ROOT_LOGGER = logging.getLogger("Remora")
 ROOT_LOGGER.setLevel(logging.DEBUG)

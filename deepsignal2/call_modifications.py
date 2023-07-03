@@ -16,8 +16,9 @@ from sklearn import metrics
 
 # import multiprocessing as mp
 import torch.multiprocessing as mp
+
 try:
-    mp.set_start_method('spawn')
+    mp.set_start_method("spawn")
 except RuntimeError:
     pass
 
@@ -41,7 +42,7 @@ from .utils.constants_torch import use_cuda
 import uuid
 
 # add this export temporarily
-os.environ['MKL_THREADING_LAYER'] = 'GNU'
+os.environ["MKL_THREADING_LAYER"] = "GNU"
 
 queue_size_border_f5batch = 100
 queue_size_border = 1000
@@ -52,7 +53,9 @@ def _read_features_file(features_file, features_batch_q, f5_batch_size=20):
     print("read_features process-{} starts".format(os.getpid()))
     r_num, b_num = 0, 0
     with open(features_file, "r") as rf:
-        sampleinfo = []  # contains: chromosome, pos, strand, pos_in_strand, read_name, read_strand
+        sampleinfo = (
+            []
+        )  # contains: chromosome, pos, strand, pos_in_strand, read_name, read_strand
         kmers = []
         base_means = []
         base_stds = []
@@ -69,7 +72,9 @@ def _read_features_file(features_file, features_batch_q, f5_batch_size=20):
         base_means.append([float(x) for x in words[7].split(",")])
         base_stds.append([float(x) for x in words[8].split(",")])
         base_signal_lens.append([int(x) for x in words[9].split(",")])
-        k_signals.append([[float(y) for y in x.split(",")] for x in words[10].split(";")])
+        k_signals.append(
+            [[float(y) for y in x.split(",")] for x in words[10].split(";")]
+        )
         labels.append(int(words[11]))
 
         for line in rf:
@@ -79,8 +84,17 @@ def _read_features_file(features_file, features_batch_q, f5_batch_size=20):
                 r_num += 1
                 readid_pre = readidtmp
                 if r_num % f5_batch_size == 0:
-                    features_batch_q.put((sampleinfo, kmers, base_means, base_stds,
-                                          base_signal_lens, k_signals, labels))
+                    features_batch_q.put(
+                        (
+                            sampleinfo,
+                            kmers,
+                            base_means,
+                            base_stds,
+                            base_signal_lens,
+                            k_signals,
+                            labels,
+                        )
+                    )
                     while features_batch_q.qsize() > queue_size_border_f5batch:
                         time.sleep(time_wait)
                     sampleinfo = []
@@ -97,24 +111,44 @@ def _read_features_file(features_file, features_batch_q, f5_batch_size=20):
             base_means.append([float(x) for x in words[7].split(",")])
             base_stds.append([float(x) for x in words[8].split(",")])
             base_signal_lens.append([int(x) for x in words[9].split(",")])
-            k_signals.append([[float(y) for y in x.split(",")] for x in words[10].split(";")])
+            k_signals.append(
+                [[float(y) for y in x.split(",")] for x in words[10].split(";")]
+            )
             labels.append(int(words[11]))
         r_num += 1
         if len(sampleinfo) > 0:
-            features_batch_q.put((sampleinfo, kmers, base_means, base_stds,
-                                  base_signal_lens, k_signals, labels))
+            features_batch_q.put(
+                (
+                    sampleinfo,
+                    kmers,
+                    base_means,
+                    base_stds,
+                    base_signal_lens,
+                    k_signals,
+                    labels,
+                )
+            )
             b_num += 1
     features_batch_q.put("kill")
-    print("read_features process-{} ending, read {} reads in {} f5-batches({})".format(os.getpid(),
-                                                                                       r_num, b_num,
-                                                                                       f5_batch_size))
+    print(
+        "read_features process-{} ending, read {} reads in {} f5-batches({})".format(
+            os.getpid(), r_num, b_num, f5_batch_size
+        )
+    )
 
 
 def _call_mods(features_batch, model, batch_size, device=0):
     # features_batch: 1. if from _read_features_file(), has 1 * args.batch_size samples (not any more, modified)
     # --------------: 2. if from _read_features_from_fast5s(), has uncertain number of samples
-    sampleinfo, kmers, base_means, base_stds, base_signal_lens, \
-        k_signals, labels = features_batch
+    (
+        sampleinfo,
+        kmers,
+        base_means,
+        base_stds,
+        base_signal_lens,
+        k_signals,
+        labels,
+    ) = features_batch
     labels = np.reshape(labels, (len(labels)))
 
     pred_str = []
@@ -130,10 +164,13 @@ def _call_mods(features_batch, model, batch_size, device=0):
         b_k_signals = k_signals[batch_s:batch_e]
         b_labels = labels[batch_s:batch_e]
         if len(b_sampleinfo) > 0:
-            voutputs, vlogits = model(FloatTensor(b_kmers, device), FloatTensor(b_base_means, device),
-                                      FloatTensor(b_base_stds, device),
-                                      FloatTensor(b_base_signal_lens, device),
-                                      FloatTensor(b_k_signals, device))
+            voutputs, vlogits = model(
+                FloatTensor(b_kmers, device),
+                FloatTensor(b_base_means, device),
+                FloatTensor(b_base_stds, device),
+                FloatTensor(b_base_signal_lens, device),
+                FloatTensor(b_k_signals, device),
+            )
             _, vpredicted = torch.max(vlogits.data, 1)
             if use_cuda:
                 vlogits = vlogits.cpu()
@@ -142,8 +179,7 @@ def _call_mods(features_batch, model, batch_size, device=0):
             predicted = vpredicted.numpy()
             logits = vlogits.data.numpy()
 
-            acc_batch = metrics.accuracy_score(
-                y_true=b_labels, y_pred=predicted)
+            acc_batch = metrics.accuracy_score(y_true=b_labels, y_pred=predicted)
             accuracys.append(acc_batch)
 
             for idx in range(len(b_sampleinfo)):
@@ -151,23 +187,44 @@ def _call_mods(features_batch, model, batch_size, device=0):
                 prob_0, prob_1 = logits[idx][0], logits[idx][1]
                 prob_0_norm = round(prob_0 / (prob_0 + prob_1), 6)
                 prob_1_norm = round(1 - prob_0_norm, 6)
-                pred_str.append("\t".join([b_sampleinfo[idx], str(prob_0_norm),
-                                           str(prob_1_norm), str(predicted[idx]),
-                                           ''.join([code2base_dna[x] for x in b_kmers[idx]])]))
+                pred_str.append(
+                    "\t".join(
+                        [
+                            b_sampleinfo[idx],
+                            str(prob_0_norm),
+                            str(prob_1_norm),
+                            str(predicted[idx]),
+                            "".join([code2base_dna[x] for x in b_kmers[idx]]),
+                        ]
+                    )
+                )
             batch_num += 1
     accuracy = np.mean(accuracys) if len(accuracys) > 0 else 0
 
     return pred_str, accuracy, batch_num
 
 
-def _call_mods_q(model_path, features_batch_q, pred_str_q, success_file, args, device=0):
-    print('call_mods process-{} starts'.format(os.getpid()))
-    model = ModelBiLSTM(args.seq_len, args.signal_len, args.layernum1, args.layernum2, args.class_num,
-                        args.dropout_rate, args.hid_rnn,
-                        args.n_vocab, args.n_embed, str2bool(args.is_base), str2bool(args.is_signallen),
-                        args.model_type, device=device)
+def _call_mods_q(
+    model_path, features_batch_q, pred_str_q, success_file, args, device=0
+):
+    print("call_mods process-{} starts".format(os.getpid()))
+    model = ModelBiLSTM(
+        args.seq_len,
+        args.signal_len,
+        args.layernum1,
+        args.layernum2,
+        args.class_num,
+        args.dropout_rate,
+        args.hid_rnn,
+        args.n_vocab,
+        args.n_embed,
+        str2bool(args.is_base),
+        str2bool(args.is_signallen),
+        args.model_type,
+        device=device,
+    )
 
-    para_dict = torch.load(model_path, map_location=torch.device('cpu'))
+    para_dict = torch.load(model_path, map_location=torch.device("cpu"))
     # para_dict = torch.load(model_path, map_location=torch.device(device))
     model_dict = model.state_dict()
     model_dict.update(para_dict)
@@ -195,7 +252,9 @@ def _call_mods_q(model_path, features_batch_q, pred_str_q, success_file, args, d
             # open(success_file, 'w').close()
             break
 
-        pred_str, accuracy, batch_num = _call_mods(features_batch, model, args.batch_size, device)
+        pred_str, accuracy, batch_num = _call_mods(
+            features_batch, model, args.batch_size, device
+        )
 
         pred_str_q.put(pred_str)
         while pred_str_q.qsize() > queue_size_border:
@@ -206,13 +265,16 @@ def _call_mods_q(model_path, features_batch_q, pred_str_q, success_file, args, d
         accuracy_list.append(accuracy)
         batch_num_total += batch_num
     # print('total accuracy in process {}: {}'.format(os.getpid(), np.mean(accuracy_list)))
-    print('call_mods process-{} ending, proceed {} feature-batches({})'.format(os.getpid(), batch_num_total,
-                                                                               args.batch_size))
+    print(
+        "call_mods process-{} ending, proceed {} feature-batches({})".format(
+            os.getpid(), batch_num_total, args.batch_size
+        )
+    )
 
 
 def _write_predstr_to_file(write_fp, predstr_q):
-    print('write_process-{} starts'.format(os.getpid()))
-    with open(write_fp, 'w') as wf:
+    print("write_process-{} starts".format(os.getpid()))
+    with open(write_fp, "w") as wf:
         while True:
             # during test, it's ok without the sleep()
             if predstr_q.empty():
@@ -220,7 +282,7 @@ def _write_predstr_to_file(write_fp, predstr_q):
                 continue
             pred_str = predstr_q.get()
             if pred_str == "kill":
-                print('write_process-{} finished'.format(os.getpid()))
+                print("write_process-{} finished".format(os.getpid()))
                 break
             for one_pred_str in pred_str:
                 wf.write(one_pred_str + "\n")
@@ -228,13 +290,24 @@ def _write_predstr_to_file(write_fp, predstr_q):
 
 
 def _read_features_from_fast5s(fast5s, motif_seqs, chrom2len, positions, args):
-    features_list, error = _extract_features(fast5s, args.corrected_group, args.basecall_subgroup,
-                                             args.normalize_method, motif_seqs, args.mod_loc, chrom2len,
-                                             args.seq_len, args.signal_len,
-                                             1, positions)
+    features_list, error = _extract_features(
+        fast5s,
+        args.corrected_group,
+        args.basecall_subgroup,
+        args.normalize_method,
+        motif_seqs,
+        args.mod_loc,
+        chrom2len,
+        args.seq_len,
+        args.signal_len,
+        1,
+        positions,
+    )
     features_batches = []
 
-    sampleinfo = []  # contains: chromosome, pos, strand, pos_in_strand, read_name, read_strand
+    sampleinfo = (
+        []
+    )  # contains: chromosome, pos, strand, pos_in_strand, read_name, read_strand
     kmers = []
     base_means = []
     base_stds = []
@@ -242,10 +315,24 @@ def _read_features_from_fast5s(fast5s, motif_seqs, chrom2len, positions, args):
     k_signals = []
     labels = []
     for features in features_list:
-        chrom, pos, alignstrand, loc_in_ref, readname, strand, k_mer, signal_means, signal_stds, \
-                    signal_lens, kmer_base_signals, f_methy_label = features
+        (
+            chrom,
+            pos,
+            alignstrand,
+            loc_in_ref,
+            readname,
+            strand,
+            k_mer,
+            signal_means,
+            signal_stds,
+            signal_lens,
+            kmer_base_signals,
+            f_methy_label,
+        ) = features
 
-        sampleinfo.append("\t".join([chrom, str(pos), alignstrand, str(loc_in_ref), readname, strand]))
+        sampleinfo.append(
+            "\t".join([chrom, str(pos), alignstrand, str(loc_in_ref), readname, strand])
+        )
         kmers.append([base2code_dna[x] for x in k_mer])
         base_means.append(signal_means)
         base_stds.append(signal_stds)
@@ -253,13 +340,23 @@ def _read_features_from_fast5s(fast5s, motif_seqs, chrom2len, positions, args):
         k_signals.append(kmer_base_signals)
         labels.append(f_methy_label)
     if len(sampleinfo) > 0:
-        features_batches.append((sampleinfo, kmers, base_means, base_stds,
-                                 base_signal_lens, k_signals, labels))
+        features_batches.append(
+            (
+                sampleinfo,
+                kmers,
+                base_means,
+                base_stds,
+                base_signal_lens,
+                k_signals,
+                labels,
+            )
+        )
     return features_batches, error
 
 
-def _read_features_fast5s_q(fast5s_q, features_batch_q, errornum_q,
-                            motif_seqs, chrom2len, positions, args):
+def _read_features_fast5s_q(
+    fast5s_q, features_batch_q, errornum_q, motif_seqs, chrom2len, positions, args
+):
     print("read_fast5 process-{} starts".format(os.getpid()))
     f5_num = 0
     while True:
@@ -270,8 +367,9 @@ def _read_features_fast5s_q(fast5s_q, features_batch_q, errornum_q,
             fast5s_q.put("kill")
             break
         f5_num += len(fast5s)
-        features_batches, error = _read_features_from_fast5s(fast5s, motif_seqs, chrom2len, positions,
-                                                             args)
+        features_batches, error = _read_features_from_fast5s(
+            fast5s, motif_seqs, chrom2len, positions, args
+        )
         errornum_q.put(error)
         for features_batch in features_batches:
             features_batch_q.put(features_batch)
@@ -280,9 +378,16 @@ def _read_features_fast5s_q(fast5s_q, features_batch_q, errornum_q,
     print("read_fast5 process-{} ending, proceed {} fast5s".format(os.getpid(), f5_num))
 
 
-def _call_mods_from_fast5s_gpu(motif_seqs, chrom2len, fast5s_q, len_fast5s, positions,
-                               model_path, success_file,
-                               args):
+def _call_mods_from_fast5s_gpu(
+    motif_seqs,
+    chrom2len,
+    fast5s_q,
+    len_fast5s,
+    positions,
+    model_path,
+    success_file,
+    args,
+):
     # features_batch_q = mp.Queue()
     # errornum_q = mp.Queue()
     features_batch_q = Queue()
@@ -302,9 +407,18 @@ def _call_mods_from_fast5s_gpu(motif_seqs, chrom2len, fast5s_q, len_fast5s, posi
     fast5s_q.put("kill")
     features_batch_procs = []
     for _ in range(nproc - nproc_gpu - 1):
-        p = mp.Process(target=_read_features_fast5s_q, args=(fast5s_q, features_batch_q, errornum_q,
-                                                             motif_seqs, chrom2len, positions,
-                                                             args))
+        p = mp.Process(
+            target=_read_features_fast5s_q,
+            args=(
+                fast5s_q,
+                features_batch_q,
+                errornum_q,
+                motif_seqs,
+                chrom2len,
+                positions,
+                args,
+            ),
+        )
         p.daemon = True
         p.start()
         features_batch_procs.append(p)
@@ -313,8 +427,17 @@ def _call_mods_from_fast5s_gpu(motif_seqs, chrom2len, fast5s_q, len_fast5s, posi
     gpulist = _get_gpus()
     gpuindex = 0
     for _ in range(nproc_gpu):
-        p_call_mods_gpu = mp.Process(target=_call_mods_q, args=(model_path, features_batch_q, pred_str_q,
-                                                                success_file, args, gpulist[gpuindex]))
+        p_call_mods_gpu = mp.Process(
+            target=_call_mods_q,
+            args=(
+                model_path,
+                features_batch_q,
+                pred_str_q,
+                success_file,
+                args,
+                gpulist[gpuindex],
+            ),
+        )
         gpuindex += 1
         p_call_mods_gpu.daemon = True
         p_call_mods_gpu.start()
@@ -348,8 +471,16 @@ def _call_mods_from_fast5s_gpu(motif_seqs, chrom2len, fast5s_q, len_fast5s, posi
     print("%d of %d fast5 files failed.." % (errornum_sum, len_fast5s))
 
 
-def _call_mods_from_fast5s_cpu2(motif_seqs, chrom2len, fast5s_q, len_fast5s, positions, model_path,
-                                success_file, args):
+def _call_mods_from_fast5s_cpu2(
+    motif_seqs,
+    chrom2len,
+    fast5s_q,
+    len_fast5s,
+    positions,
+    model_path,
+    success_file,
+    args,
+):
     # features_batch_q = mp.Queue()
     # errornum_q = mp.Queue()
     features_batch_q = Queue()
@@ -366,17 +497,28 @@ def _call_mods_from_fast5s_cpu2(motif_seqs, chrom2len, fast5s_q, len_fast5s, pos
     fast5s_q.put("kill")
     features_batch_procs = []
     for _ in range(nproc - nproc_call_mods - 1):
-        p = mp.Process(target=_read_features_fast5s_q, args=(fast5s_q, features_batch_q, errornum_q,
-                                                             motif_seqs, chrom2len, positions,
-                                                             args))
+        p = mp.Process(
+            target=_read_features_fast5s_q,
+            args=(
+                fast5s_q,
+                features_batch_q,
+                errornum_q,
+                motif_seqs,
+                chrom2len,
+                positions,
+                args,
+            ),
+        )
         p.daemon = True
         p.start()
         features_batch_procs.append(p)
 
     call_mods_cpu_procs = []
     for _ in range(nproc_call_mods):
-        p_call_mods_cpu = mp.Process(target=_call_mods_q, args=(model_path, features_batch_q, pred_str_q,
-                                                                success_file, args))
+        p_call_mods_cpu = mp.Process(
+            target=_call_mods_q,
+            args=(model_path, features_batch_q, pred_str_q, success_file, args),
+        )
         p_call_mods_cpu.daemon = True
         p_call_mods_cpu.start()
         call_mods_cpu_procs.append(p_call_mods_cpu)
@@ -524,24 +666,44 @@ def call_mods(args):
         os.remove(success_file)
 
     if os.path.isdir(input_path):
-        motif_seqs, chrom2len, fast5s_q, len_fast5s, positions = _extract_preprocess(input_path,
-                                                                                     str2bool(args.recursively),
-                                                                                     args.motifs,
-                                                                                     str2bool(args.is_dna),
-                                                                                     args.reference_path,
-                                                                                     args.f5_batch_size,
-                                                                                     args.positions)
+        motif_seqs, chrom2len, fast5s_q, len_fast5s, positions = _extract_preprocess(
+            input_path,
+            str2bool(args.recursively),
+            args.motifs,
+            str2bool(args.is_dna),
+            args.reference_path,
+            args.f5_batch_size,
+            args.positions,
+        )
         if use_cuda:
-            _call_mods_from_fast5s_gpu(motif_seqs, chrom2len, fast5s_q, len_fast5s, positions, model_path,
-                                       success_file, args)
+            _call_mods_from_fast5s_gpu(
+                motif_seqs,
+                chrom2len,
+                fast5s_q,
+                len_fast5s,
+                positions,
+                model_path,
+                success_file,
+                args,
+            )
         else:
-            _call_mods_from_fast5s_cpu2(motif_seqs, chrom2len, fast5s_q, len_fast5s, positions, model_path,
-                                        success_file, args)
+            _call_mods_from_fast5s_cpu2(
+                motif_seqs,
+                chrom2len,
+                fast5s_q,
+                len_fast5s,
+                positions,
+                model_path,
+                success_file,
+                args,
+            )
     else:
         # features_batch_q = mp.Queue()
         features_batch_q = Queue()
-        p_rf = mp.Process(target=_read_features_file, args=(input_path, features_batch_q,
-                                                            args.f5_batch_size))
+        p_rf = mp.Process(
+            target=_read_features_file,
+            args=(input_path, features_batch_q, args.f5_batch_size),
+        )
         p_rf.daemon = True
         p_rf.start()
 
@@ -569,15 +731,26 @@ def call_mods(args):
         gpulist = _get_gpus()
         gpuindex = 0
         for _ in range(nproc_dp):
-            p = mp.Process(target=_call_mods_q, args=(model_path, features_batch_q, pred_str_q,
-                                                      success_file, args, gpulist[gpuindex]))
+            p = mp.Process(
+                target=_call_mods_q,
+                args=(
+                    model_path,
+                    features_batch_q,
+                    pred_str_q,
+                    success_file,
+                    args,
+                    gpulist[gpuindex],
+                ),
+            )
             gpuindex += 1
             p.daemon = True
             p.start()
             predstr_procs.append(p)
 
         # print("write_process started..")
-        p_w = mp.Process(target=_write_predstr_to_file, args=(args.result_file, pred_str_q))
+        p_w = mp.Process(
+            target=_write_predstr_to_file, args=(args.result_file, pred_str_q)
+        )
         p_w.daemon = True
         p_w.start()
 
@@ -600,108 +773,244 @@ def main():
     parser = argparse.ArgumentParser("call modifications")
 
     p_input = parser.add_argument_group("INPUT")
-    p_input.add_argument("--input_path", "-i", action="store", type=str,
-                         required=True,
-                         help="the input path, can be a signal_feature file from extract_features.py, "
-                              "or a directory of fast5 files. If a directory of fast5 files is provided, "
-                              "args in FAST5_EXTRACTION should be provided.")
-    p_input.add_argument("--f5_batch_size", action="store", type=int, default=50,
-                         required=False,
-                         help="number of reads/files to be processed by each process one time, default 50")
+    p_input.add_argument(
+        "--input_path",
+        "-i",
+        action="store",
+        type=str,
+        required=True,
+        help="the input path, can be a signal_feature file from extract_features.py, "
+        "or a directory of fast5 files. If a directory of fast5 files is provided, "
+        "args in FAST5_EXTRACTION should be provided.",
+    )
+    p_input.add_argument(
+        "--f5_batch_size",
+        action="store",
+        type=int,
+        default=50,
+        required=False,
+        help="number of reads/files to be processed by each process one time, default 50",
+    )
 
     p_call = parser.add_argument_group("CALL")
-    p_call.add_argument("--model_path", "-m", action="store", type=str, required=True,
-                        help="file path of the trained model (.ckpt)")
+    p_call.add_argument(
+        "--model_path",
+        "-m",
+        action="store",
+        type=str,
+        required=True,
+        help="file path of the trained model (.ckpt)",
+    )
 
     # model input
-    p_call.add_argument('--model_type', type=str, default="both_bilstm",
-                        choices=["both_bilstm", "seq_bilstm", "signal_bilstm"],
-                        required=False,
-                        help="type of model to use, 'both_bilstm', 'seq_bilstm' or 'signal_bilstm', "
-                             "'both_bilstm' means to use both seq and signal bilstm, default: both_bilstm")
-    p_call.add_argument('--seq_len', type=int, default=17, required=False,
-                        help="len of kmer. default 17")
-    p_call.add_argument('--signal_len', type=int, default=16, required=False,
-                        help="signal num of one base, default 16")
+    p_call.add_argument(
+        "--model_type",
+        type=str,
+        default="both_bilstm",
+        choices=["both_bilstm", "seq_bilstm", "signal_bilstm"],
+        required=False,
+        help="type of model to use, 'both_bilstm', 'seq_bilstm' or 'signal_bilstm', "
+        "'both_bilstm' means to use both seq and signal bilstm, default: both_bilstm",
+    )
+    p_call.add_argument(
+        "--seq_len",
+        type=int,
+        default=17,
+        required=False,
+        help="len of kmer. default 17",
+    )
+    p_call.add_argument(
+        "--signal_len",
+        type=int,
+        default=16,
+        required=False,
+        help="signal num of one base, default 16",
+    )
 
     # model param
-    p_call.add_argument('--layernum1', type=int, default=3,
-                        required=False, help="lstm layer num for combined feature, default 3")
-    p_call.add_argument('--layernum2', type=int, default=1,
-                        required=False, help="lstm layer num for seq feature (and for signal feature too), default 1")
-    p_call.add_argument('--class_num', type=int, default=2, required=False)
-    p_call.add_argument('--dropout_rate', type=float, default=0, required=False)
-    p_call.add_argument('--n_vocab', type=int, default=16, required=False,
-                        help="base_seq vocab_size (15 base kinds from iupac)")
-    p_call.add_argument('--n_embed', type=int, default=4, required=False,
-                        help="base_seq embedding_size")
-    p_call.add_argument('--is_base', type=str, default="yes", required=False,
-                        help="is using base features in seq model, default yes")
-    p_call.add_argument('--is_signallen', type=str, default="yes", required=False,
-                        help="is using signal length feature of each base in seq model, default yes")
+    p_call.add_argument(
+        "--layernum1",
+        type=int,
+        default=3,
+        required=False,
+        help="lstm layer num for combined feature, default 3",
+    )
+    p_call.add_argument(
+        "--layernum2",
+        type=int,
+        default=1,
+        required=False,
+        help="lstm layer num for seq feature (and for signal feature too), default 1",
+    )
+    p_call.add_argument("--class_num", type=int, default=2, required=False)
+    p_call.add_argument("--dropout_rate", type=float, default=0, required=False)
+    p_call.add_argument(
+        "--n_vocab",
+        type=int,
+        default=16,
+        required=False,
+        help="base_seq vocab_size (15 base kinds from iupac)",
+    )
+    p_call.add_argument(
+        "--n_embed", type=int, default=4, required=False, help="base_seq embedding_size"
+    )
+    p_call.add_argument(
+        "--is_base",
+        type=str,
+        default="yes",
+        required=False,
+        help="is using base features in seq model, default yes",
+    )
+    p_call.add_argument(
+        "--is_signallen",
+        type=str,
+        default="yes",
+        required=False,
+        help="is using signal length feature of each base in seq model, default yes",
+    )
 
-    p_call.add_argument("--batch_size", "-b", default=512, type=int, required=False,
-                        action="store", help="batch size, default 512")
+    p_call.add_argument(
+        "--batch_size",
+        "-b",
+        default=512,
+        type=int,
+        required=False,
+        action="store",
+        help="batch size, default 512",
+    )
 
     # BiLSTM model param
-    p_call.add_argument('--hid_rnn', type=int, default=256, required=False,
-                        help="BiLSTM hidden_size for combined feature")
+    p_call.add_argument(
+        "--hid_rnn",
+        type=int,
+        default=256,
+        required=False,
+        help="BiLSTM hidden_size for combined feature",
+    )
 
     p_output = parser.add_argument_group("OUTPUT")
-    p_output.add_argument("--result_file", "-o", action="store", type=str, required=True,
-                          help="the file path to save the predicted result")
+    p_output.add_argument(
+        "--result_file",
+        "-o",
+        action="store",
+        type=str,
+        required=True,
+        help="the file path to save the predicted result",
+    )
 
     p_f5 = parser.add_argument_group("FAST5_EXTRACTION")
-    p_f5.add_argument("--recursively", "-r", action="store", type=str, required=False,
-                      default='yes', help='is to find fast5 files from fast5 dir recursively. '
-                                          'default true, t, yes, 1')
-    p_f5.add_argument("--corrected_group", action="store", type=str, required=False,
-                      default='RawGenomeCorrected_000',
-                      help='the corrected_group of fast5 files after '
-                           'tombo re-squiggle. default RawGenomeCorrected_000')
-    p_f5.add_argument("--basecall_subgroup", action="store", type=str, required=False,
-                      default='BaseCalled_template',
-                      help='the corrected subgroup of fast5 files. default BaseCalled_template')
-    p_f5.add_argument("--is_dna", action="store", type=str, required=False,
-                      default='yes',
-                      help='whether the fast5 files from DNA sample or not. '
-                           'default true, t, yes, 1. '
-                           'setting this option to no/false/0 means '
-                           'the fast5 files are from RNA sample.')
-    p_f5.add_argument("--normalize_method", action="store", type=str, choices=["mad", "zscore"],
-                      default="mad", required=False,
-                      help="the way for normalizing signals in read level. "
-                           "mad or zscore, default mad")
+    p_f5.add_argument(
+        "--recursively",
+        "-r",
+        action="store",
+        type=str,
+        required=False,
+        default="yes",
+        help="is to find fast5 files from fast5 dir recursively. "
+        "default true, t, yes, 1",
+    )
+    p_f5.add_argument(
+        "--corrected_group",
+        action="store",
+        type=str,
+        required=False,
+        default="RawGenomeCorrected_000",
+        help="the corrected_group of fast5 files after "
+        "tombo re-squiggle. default RawGenomeCorrected_000",
+    )
+    p_f5.add_argument(
+        "--basecall_subgroup",
+        action="store",
+        type=str,
+        required=False,
+        default="BaseCalled_template",
+        help="the corrected subgroup of fast5 files. default BaseCalled_template",
+    )
+    p_f5.add_argument(
+        "--is_dna",
+        action="store",
+        type=str,
+        required=False,
+        default="yes",
+        help="whether the fast5 files from DNA sample or not. "
+        "default true, t, yes, 1. "
+        "setting this option to no/false/0 means "
+        "the fast5 files are from RNA sample.",
+    )
+    p_f5.add_argument(
+        "--normalize_method",
+        action="store",
+        type=str,
+        choices=["mad", "zscore"],
+        default="mad",
+        required=False,
+        help="the way for normalizing signals in read level. "
+        "mad or zscore, default mad",
+    )
     # p_f5.add_argument("--methy_label", action="store", type=int,
     #                   choices=[1, 0], required=False, default=1,
     #                   help="the label of the interested modified bases, this is for training."
     #                        " 0 or 1, default 1")
-    p_f5.add_argument("--motifs", action="store", type=str,
-                      required=False, default='CG',
-                      help='motif seq to be extracted, default: CG. '
-                           'can be multi motifs splited by comma '
-                           '(no space allowed in the input str), '
-                           'or use IUPAC alphabet, '
-                           'the mod_loc of all motifs must be '
-                           'the same')
-    p_f5.add_argument("--mod_loc", action="store", type=int, required=False, default=0,
-                      help='0-based location of the targeted base in the motif, default 0')
-    p_f5.add_argument("--positions", action="store", type=str,
-                      required=False, default=None,
-                      help="file with a list of positions interested (must be formatted as tab-separated file"
-                           " with chromosome, position (in fwd strand), and strand. motifs/mod_loc are still "
-                           "need to be set. --positions is used to narrow down the range of the trageted "
-                           "motif locs. default None")
-    p_f5.add_argument("--reference_path", action="store",
-                      type=str, required=False, default=None,
-                      help="the reference file to be used, usually is a .fa file. (not necessary)")
+    p_f5.add_argument(
+        "--motifs",
+        action="store",
+        type=str,
+        required=False,
+        default="CG",
+        help="motif seq to be extracted, default: CG. "
+        "can be multi motifs splited by comma "
+        "(no space allowed in the input str), "
+        "or use IUPAC alphabet, "
+        "the mod_loc of all motifs must be "
+        "the same",
+    )
+    p_f5.add_argument(
+        "--mod_loc",
+        action="store",
+        type=int,
+        required=False,
+        default=0,
+        help="0-based location of the targeted base in the motif, default 0",
+    )
+    p_f5.add_argument(
+        "--positions",
+        action="store",
+        type=str,
+        required=False,
+        default=None,
+        help="file with a list of positions interested (must be formatted as tab-separated file"
+        " with chromosome, position (in fwd strand), and strand. motifs/mod_loc are still "
+        "need to be set. --positions is used to narrow down the range of the trageted "
+        "motif locs. default None",
+    )
+    p_f5.add_argument(
+        "--reference_path",
+        action="store",
+        type=str,
+        required=False,
+        default=None,
+        help="the reference file to be used, usually is a .fa file. (not necessary)",
+    )
 
-    parser.add_argument("--nproc", "-p", action="store", type=int, default=10,
-                        required=False, help="number of processes to be used, default 10.")
-    parser.add_argument("--nproc_gpu", action="store", type=int, default=2,
-                        required=False, help="number of processes to use gpu (if gpu is available), "
-                                             "1 or a number less than nproc-1, no more than "
-                                             "nproc/4 is suggested. default 2.")
+    parser.add_argument(
+        "--nproc",
+        "-p",
+        action="store",
+        type=int,
+        default=10,
+        required=False,
+        help="number of processes to be used, default 10.",
+    )
+    parser.add_argument(
+        "--nproc_gpu",
+        action="store",
+        type=int,
+        default=2,
+        required=False,
+        help="number of processes to use gpu (if gpu is available), "
+        "1 or a number less than nproc-1, no more than "
+        "nproc/4 is suggested. default 2.",
+    )
     # parser.add_argument("--is_gpu", action="store", type=str, default="no", required=False,
     #                     choices=["yes", "no"], help="use gpu for tensorflow or not, default no. "
     #                                                 "If you're using a gpu machine, please set to yes. "
@@ -714,5 +1023,5 @@ def main():
     call_mods(args)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

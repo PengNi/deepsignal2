@@ -2,26 +2,51 @@ import os
 import argparse
 
 
-basepairs = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N': 'N',
-             'W': 'W', 'S': 'S', 'M': 'K', 'K': 'M', 'R': 'Y',
-             'Y': 'R', 'B': 'V', 'V': 'B', 'D': 'H', 'H': "D",
-             'Z': 'Z'}
+basepairs = {
+    "A": "T",
+    "C": "G",
+    "G": "C",
+    "T": "A",
+    "N": "N",
+    "W": "W",
+    "S": "S",
+    "M": "K",
+    "K": "M",
+    "R": "Y",
+    "Y": "R",
+    "B": "V",
+    "V": "B",
+    "D": "H",
+    "H": "D",
+    "Z": "Z",
+}
 
-iupac_alphabets = {'A': ['A'], 'T': ['T'], 'C': ['C'], 'G': ['G'],
-                   'R': ['A', 'G'], 'M': ['A', 'C'], 'S': ['C', 'G'],
-                   'Y': ['C', 'T'], 'K': ['G', 'T'], 'W': ['A', 'T'],
-                   'B': ['C', 'G', 'T'], 'D': ['A', 'G', 'T'],
-                   'H': ['A', 'C', 'T'], 'V': ['A', 'C', 'G'],
-                   'N': ['A', 'C', 'G', 'T']}
+iupac_alphabets = {
+    "A": ["A"],
+    "T": ["T"],
+    "C": ["C"],
+    "G": ["G"],
+    "R": ["A", "G"],
+    "M": ["A", "C"],
+    "S": ["C", "G"],
+    "Y": ["C", "T"],
+    "K": ["G", "T"],
+    "W": ["A", "T"],
+    "B": ["C", "G", "T"],
+    "D": ["A", "G", "T"],
+    "H": ["A", "C", "T"],
+    "V": ["A", "C", "G"],
+    "N": ["A", "C", "G", "T"],
+}
 
 
 def complement_seq(dnaseq):
     rdnaseq = dnaseq[::-1]
-    comseq = ''
+    comseq = ""
     try:
-        comseq = ''.join([basepairs[x] for x in rdnaseq])
+        comseq = "".join([basepairs[x] for x in rdnaseq])
     except Exception:
-        print('something wrong in the dna sequence.')
+        print("something wrong in the dna sequence.")
     return comseq
 
 
@@ -29,16 +54,16 @@ class DNAReference:
     def __init__(self, reffile):
         self._contignames = []
         self._contigs = {}  # contigname 2 contigseq
-        with open(reffile, 'r') as rf:
-            contigname = ''
-            contigseq = ''
+        with open(reffile, "r") as rf:
+            contigname = ""
+            contigseq = ""
             for line in rf:
-                if line.startswith('>'):
-                    if contigname != '' and contigseq != '':
+                if line.startswith(">"):
+                    if contigname != "" and contigseq != "":
                         self._contigs[contigname] = contigseq
                         self._contignames.append(contigname)
-                    contigname = line.strip()[1:].split(' ')[0]
-                    contigseq = ''
+                    contigname = line.strip()[1:].split(" ")[0]
+                    contigseq = ""
                 else:
                     # turn to upper case
                     contigseq += line.strip().upper()
@@ -73,6 +98,7 @@ def _convert_motif_seq(ori_seq, is_dna=True):
             pseqs = recursive_permute(bases_list[1:])
             pseq_list = [bases_list[0], pseqs]
             return recursive_permute(pseq_list)
+
     return recursive_permute(outbases)
 
 
@@ -91,9 +117,9 @@ def get_c_motif2seq():
 
 def get_motifseq(chrom, pos, strand, contigs):
     if strand == "+":
-        seq = contigs[chrom][pos:(pos+3)]
+        seq = contigs[chrom][pos : (pos + 3)]
     else:
-        seq = complement_seq(contigs[chrom][(pos-2):(pos+1)])
+        seq = complement_seq(contigs[chrom][(pos - 2) : (pos + 1)])
     return seq
 
 
@@ -116,9 +142,16 @@ def _split_freq_file(freqfile, ref):
         else:
             motifstr = motif
         if fname.endswith(".freq"):
-            wfobjs.append(open(fname.rstrip(".freq") + "." + motifstr + ".freq" + fext, "w"))
+            wfobjs.append(
+                open(fname.rstrip(".freq") + "." + motifstr + ".freq" + fext, "w")
+            )
         elif fname.endswith(".frequency"):
-            wfobjs.append(open(fname.rstrip(".frequency") + "." + motifstr + ".frequency" + fext, "w"))
+            wfobjs.append(
+                open(
+                    fname.rstrip(".frequency") + "." + motifstr + ".frequency" + fext,
+                    "w",
+                )
+            )
         else:
             wfobjs.append(open(fname + "." + motifstr + fext, "w"))
 
@@ -151,8 +184,8 @@ def _split_freq_file(freqfile, ref):
                 count += 1
                 words = line.strip().split("\t")
                 kmer = words[-1]
-                cenpos = len(kmer)//2
-                seq = kmer[cenpos:(cenpos+3)]
+                cenpos = len(kmer) // 2
+                seq = kmer[cenpos : (cenpos + 3)]
                 try:
                     wfobjs[motif2idx[seq2motif[seq]]].write(line)
                 except KeyError:
@@ -167,14 +200,22 @@ def _split_freq_file(freqfile, ref):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--freqfile", type=str, required=True,
-                        help="mods freq file, .bed or freq.tsv from call_freq")
-    parser.add_argument("--ref", type=str, required=False,
-                        help="reference, required when --freqfile is in .bed format")
+    parser.add_argument(
+        "--freqfile",
+        type=str,
+        required=True,
+        help="mods freq file, .bed or freq.tsv from call_freq",
+    )
+    parser.add_argument(
+        "--ref",
+        type=str,
+        required=False,
+        help="reference, required when --freqfile is in .bed format",
+    )
 
     args = parser.parse_args()
     _split_freq_file(args.freqfile, args.ref)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

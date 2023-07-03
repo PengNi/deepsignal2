@@ -32,24 +32,45 @@ def convert_dp_rmet_file2bedmethyl(args):
     for fkey in fkeys:
         chrom, pos, strand = fkey
         cov, rmet = freqinfo[fkey]
-        wf.write("\t".join([chrom, str(pos), str(pos + 1), ".", str(cov), strand,
-                            str(pos), str(pos + 1), "0,0,0", str(cov),
-                            str(int(round(rmet * 100 + 0.001, 0)))]) + "\n")
+        wf.write(
+            "\t".join(
+                [
+                    chrom,
+                    str(pos),
+                    str(pos + 1),
+                    ".",
+                    str(cov),
+                    strand,
+                    str(pos),
+                    str(pos + 1),
+                    "0,0,0",
+                    str(cov),
+                    str(int(round(rmet * 100 + 0.001, 0))),
+                ]
+            )
+            + "\n"
+        )
     wf.close()
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--freqfile", type=str, action="store", required=True,
-                        help="deepsignal-plant freq file")
-    parser.add_argument("--covcf", type=int, required=False, default=1,
-                        help="")
+    parser.add_argument(
+        "--freqfile",
+        type=str,
+        action="store",
+        required=True,
+        help="deepsignal-plant freq file",
+    )
+    parser.add_argument("--covcf", type=int, required=False, default=1, help="")
     parser.add_argument("--wfile", type=str, required=False, default=None)
-    parser.add_argument('--sort', action='store_true', default=False, help="sort items in the result")
+    parser.add_argument(
+        "--sort", action="store_true", default=False, help="sort items in the result"
+    )
 
     args = parser.parse_args()
     convert_dp_rmet_file2bedmethyl(args)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
