@@ -2,6 +2,7 @@ import multiprocessing as mp
 import numpy as np
 import pod5 as p5
 import pysam
+import sys
 from multiprocessing import Queue  # ,Manager,Pool
 import time
 import os
@@ -9,31 +10,48 @@ import signal
 import logging
 from tqdm import tqdm
 from multiprocessing import Pool
+import random
 from utils.utils import parse_args
 from utils.log import get_logger, init_logger
 
+args = parse_args()
 signal.signal(signal.SIGPIPE, signal.SIG_IGN)  # 忽略SIGPIPE信号
-LOGGER = get_logger()
+logger = logging.getLogger("test_logger")
+logger.setLevel(logging.DEBUG)
+test_log = logging.FileHandler(
+    args.log_file, "a", encoding="utf-8"
+)
+formatter = logging.Formatter(
+    "%(asctime)s - %(filename)s - line:%(lineno)d - %(levelname)s - %(message)s -%(process)s"
+)
+test_log.setFormatter(formatter)
+# 加载文件到logger对象中
+logger.addHandler(test_log)
 
 
-def extract_signal_from_pod5(pod5_path) -> list:
+def extract_signal_from_pod5(pod5_path) -> np.array:
     signals = []
     with p5.Reader(pod5_path) as reader:
         for read_record in reader.reads():
+            if read_record.signal is None:
+                logger.critical(
+                    "Signal is None for read id {}".format(read_record.read_id)
+                )
             # signals[str(read_record.read_id)] = {'signal':read_record.signal,'shift':read_record.calibration.offset,'scale':read_record.calibration.scale}#不加str会变成UUID，很奇怪
             signals.append(
                 [
                     str(read_record.read_id),
-                    read_record.signal,
-                    read_record.calibration.offset,
-                    read_record.calibration.scale,
+                    read_record.signal.astype(np.int8),
+                    np.int8(read_record.calibration.offset),
+                    np.float16(read_record.calibration.scale),
                 ]
             )
             # 0:read_id,1:signal,2:shift,3:scale
-    return signals
+    return np.array(signals, dtype=object)  # np.array is small than list
 
 
-def extract_move_from_bam(bam_path) -> list:
+
+def extract_move_from_bam(bam_path) -> np.array:
     seq_move = []
     bamfile = pysam.AlignmentFile(bam_path, "rb", check_sq=False)
     try:
@@ -49,11 +67,11 @@ def extract_move_from_bam(bam_path) -> list:
                 [
                     read.query_name,
                     read.query_sequence,
-                    mv_tag[0],
-                    np.array(mv_tag[1:]),
-                    ts_tag,
-                    sm_tag,
-                    sd_tag,
+                    np.int8(mv_tag[0]),
+                    np.array(mv_tag[1:], dtype=np.int8),
+                    np.int8(ts_tag),
+                    np.float16(sm_tag),
+                    np.float16(sd_tag),
                 ]
             )
     except ValueError:
@@ -68,19 +86,20 @@ def extract_move_from_bam(bam_path) -> list:
                 [
                     read.query_name,
                     read.query_sequence,
-                    mv_tag[0],
-                    np.array(mv_tag[1:]),
-                    ts_tag,
-                    sm_tag,
-                    sd_tag,
+                    np.int8(mv_tag[0]),
+                    np.array(mv_tag[1:], dtype=np.int8),
+                    np.int8(ts_tag),
+                    np.float16(sm_tag),
+                    np.float16(sd_tag),
                 ]
             )
             # 0:read_id,1:sequence,2:stride,3:mv_table,4:num_trimmed,5:to_norm_shift,6:to_norm_scale
             # read[read.query_name] = {"sequence":read.query_sequence,"stride":mv_tag[0],"mv_table":np.array(mv_tag[1:]),"num_trimmed":ts_tag,"shift":sm_tag,"scale":sd_tag}
-    return seq_move
+    return np.array(seq_move, dtype=object)
 
 
-def read_from_pod5_bam(pod5_path, bam_path, read_id=None) -> list:
+
+def read_from_pod5_bam(pod5_path, bam_path, read_id=None) -> np.array:
     read = []
     signal = extract_signal_from_pod5(pod5_path)
     seq_move = extract_move_from_bam(bam_path)
@@ -126,157 +145,343 @@ def read_from_pod5_bam(pod5_path, bam_path, read_id=None) -> list:
                         )
                 # 0:read_id,1:signal,2:to_pA_shift,3:to_pA_scale,4:sequence,5:stride,6:mv_table,7:num_trimmed,8:to_norm_shift,9:to_norm_scale
 
-    return read
+    return np.array(read, dtype=object)
+
+iupac_alphabets = {
+    "A": ["A"],
+    "T": ["T"],
+    "C": ["C"],
+    "G": ["G"],
+    "R": ["A", "G"],
+    "M": ["A", "C"],
+    "S": ["C", "G"],
+    "Y": ["C", "T"],
+    "K": ["G", "T"],
+    "W": ["A", "T"],
+    "B": ["C", "G", "T"],
+    "D": ["A", "G", "T"],
+    "H": ["A", "C", "T"],
+    "V": ["A", "C", "G"],
+    "N": ["A", "C", "G", "T"],
+}
+iupac_alphabets_rna = {
+    "A": ["A"],
+    "C": ["C"],
+    "G": ["G"],
+    "U": ["U"],
+    "R": ["A", "G"],
+    "M": ["A", "C"],
+    "S": ["C", "G"],
+    "Y": ["C", "U"],
+    "K": ["G", "U"],
+    "W": ["A", "U"],
+    "B": ["C", "G", "U"],
+    "D": ["A", "G", "U"],
+    "H": ["A", "C", "U"],
+    "V": ["A", "C", "G"],
+    "N": ["A", "C", "G", "U"],
+}
+
+
+def get_refloc_of_methysite_in_motif(seqstr, motifset, methyloc_in_motif=0) -> list:
+    """
+
+    :param seqstr:
+    :param motifset:
+    :param methyloc_in_motif: 0-based
+    :return:
+    """
+    motifset = set(motifset)
+    strlen = len(seqstr)
+    motiflen = len(list(motifset)[0])
+    sites = []
+    for i in range(0, strlen - motiflen + 1):
+        if seqstr[i : i + motiflen] in motifset:
+            sites.append(i + methyloc_in_motif)
+    return sites
+
+
+def _convert_motif_seq(ori_seq, is_dna=True):
+    outbases = []
+    for bbase in ori_seq:
+        if is_dna:
+            outbases.append(iupac_alphabets[bbase])
+        else:
+            outbases.append(iupac_alphabets_rna[bbase])
+
+    def recursive_permute(bases_list):
+        if len(bases_list) == 1:
+            return bases_list[0]
+        elif len(bases_list) == 2:
+            pseqs = []
+            for fbase in bases_list[0]:
+                for sbase in bases_list[1]:
+                    pseqs.append(fbase + sbase)
+            return pseqs
+        else:
+            pseqs = recursive_permute(bases_list[1:])
+            pseq_list = [bases_list[0], pseqs]
+            return recursive_permute(pseq_list)
+
+    return recursive_permute(outbases)
+
+
+def get_motif_seqs(motifs, is_dna=True):
+    ori_motif_seqs = motifs.strip().split(",")
+
+    motif_seqs = []
+    for ori_motif in ori_motif_seqs:
+        motif_seqs += _convert_motif_seq(ori_motif.strip().upper(), is_dna)
+    return motif_seqs
+
+def expand(feature, index, nbase, nsig, num, fill_num=1):
+    # nbase.append(np.tile(np.array(feature[index][5],dtype=str),num*fill_num))
+    for i in range(fill_num):
+        t = np.tile(np.array(feature[index][5], dtype=str), num)
+        nbase.append(t)
+    # nstd.append(np.tile(feature[index][2],num*fill_num))
+    # nmean.append(np.tile(feature[index][3],num*fill_num))
+    try:
+        # nsig.append(np.tile(np.random.choice(feature[index][1],size=num,replace=False),fill_num))
+        for i in range(fill_num):
+            t = np.random.choice(feature[index][1], size=num, replace=False)
+            nsig.append(t)
+        # np.array取随机不能用random包，要用numpy自带的random
+    except Exception as e:
+        logger.critical(feature[index][1])
+    # return nbase,nsig
 
 
 # 0:read_id,1:signal,2:std,3:mean,4:num,5:base
-def _get_neighbord_feature(feature, base_num):
+def _get_neighbord_feature(sequence, feature, base_num) -> list:
     # 数据预处理主要速度瓶颈，同样的reads数，不运行这个函数大概快了十倍，从二十多分钟减到两分钟
+    motif = "CG"
+    # max_sites=15
+    motif_seqs = get_motif_seqs(motif)
+    tsite_locs = get_refloc_of_methysite_in_motif(sequence, set(motif_seqs))
+    # if len(tsite_locs)>max_sites:
+    #    tsite_locs = np.random.choice(
+    #            tsite_locs,
+    #            size=max_sites,
+    #            replace=False,
+    #        )
+
     nfeature = []
-    windows_size = base_num - 1 // 2
+    windows_size = (base_num - 1) // 2
+    signal_sample = 5
     for i in range(len(feature)):
         nbase = []
-        nstd = []
-        nmean = []
+        # nstd=[]
+        # nmean=[]
         nsig = []
+        if i not in tsite_locs:
+            continue
+        # 更改扩增逻辑，增添采样函数
+        # remora一条read好像只提取15个点
+        # if feature[i][4]>base_num:
+        #    logger.info("base correspoding signal number {} is more than window size {}".format(feature[i][4],base_num))
+
         if i < windows_size:
+            flag = windows_size - i
+            expand(feature, i, nbase, nsig, signal_sample, windows_size - i)
             if i != 0:
-                for k in range(i):
-                    nbase = nbase + list(feature[k][5]) * feature[k][4]
-                    nstd = nstd + list(feature[k][2]) * feature[k][4]
-                    nmean = nmean + list(feature[k][3]) * feature[k][4]
-                    nsig = nsig + feature[k][1]
-            nbase = nbase + list(feature[i][5]) * (windows_size - i) * feature[i][4]
-            nbase = nbase + list(feature[i][5]) * feature[i][4]
-            nstd = nstd + list(feature[i][2]) * (windows_size - i) * feature[i][4]
-            nstd = nstd + list(feature[i][2]) * feature[i][4]
-            nmean = nmean + list(feature[i][3]) * (windows_size - i) * feature[i][4]
-            nmean = nmean + list(feature[i][3]) * feature[i][4]
-            nsig = nsig + feature[i][1] * (windows_size - i)
-            nsig = nsig + feature[i][1]
-            for k in range(i, i + windows_size):
-                nbase = nbase + list(feature[k][5]) * feature[k][4]
-                nstd = nbase + list(feature[k][2]) * feature[k][4]
-                nmean = nbase + list(feature[k][3]) * feature[k][4]
-                nsig = nsig + feature[k][1]
-        elif (len(feature[i]) - 1) - i < windows_size:
-            for k in range(i - windows_size, i):
-                nbase = nbase + list(feature[k][5]) * feature[k][4]
-                nstd = nstd + list(feature[k][2]) * feature[k][4]
-                nmean = nmean + list(feature[k][3]) * feature[k][4]
-                nsig = nsig + feature[k][1]
-            nbase = nbase + list(feature[i][5]) * feature[i][4]
-            nstd = nstd + list(feature[i][2]) * feature[i][4]
-            nmean = nmean + list(feature[i][3]) * feature[i][4]
-            nsig = nsig + feature[i][1]
-            if i != len(feature[i]) - 1:
-                for k in range(i, len(feature[i]) - 1):
-                    nbase = nbase + list(feature[k][5]) * feature[k][4]
-                    nstd = nstd + list(feature[k][2]) * feature[k][4]
-                    nmean = nmean + list(feature[k][3]) * feature[k][4]
-                    nsig = nsig + feature[k][1]
-            nbase = (
-                nbase
-                + list(feature[i][5])
-                * (windows_size - ((len(feature[i]) - 1) - i))
-                * feature[i][4]
+                for k in range(i):  # 左闭右开
+                    expand(feature, k, nbase, nsig, signal_sample)
+                    flag += 1
+            for k in range(i, i + windows_size + 1):
+                expand(feature, k, nbase, nsig, signal_sample)
+                flag += 1
+            logger.debug(
+                "focus base on the far left of read and expand number is {}".format(
+                    flag
+                )
             )
-            nstd = (
-                nstd
-                + list(feature[i][2])
-                * (windows_size - ((len(feature[i]) - 1) - i))
-                * feature[i][4]
+        elif (len(feature) - 1) - i < windows_size:
+            flag = 0
+            for k in range(i - windows_size, i + 1):
+                flag += 1
+                expand(feature, k, nbase, nsig, signal_sample)
+            if i != len(feature) - 1:
+                for k in range(i + 1, len(feature)):
+                    flag += 1
+                    expand(feature, k, nbase, nsig, signal_sample)
+            flag += windows_size - ((len(feature) - 1) - i)
+            expand(
+                feature,
+                i,
+                nbase,
+                nsig,
+                signal_sample,
+                windows_size - ((len(feature) - 1) - i),
             )
-            nmean = (
-                nmean
-                + list(feature[i][3])
-                * (windows_size - ((len(feature[i]) - 1) - i))
-                * feature[i][4]
+            logger.debug(
+                "focus base on the far right of read and expand number is {}".format(
+                    flag
+                )
             )
-            nsig = nsig + feature[i][1] * (windows_size - ((len(feature[i]) - 1) - i))
         else:
+            flag = 0
             for k in range(i - windows_size, i):
-                nbase = nbase + list(feature[k][5]) * feature[k][4]
-                nstd = nstd + list(feature[k][2]) * feature[k][4]
-                nmean = nmean + list(feature[k][3]) * feature[k][4]
-                nsig = nsig + feature[k][1]
-            nbase = nbase + list(feature[i][5]) * feature[i][4]
-            nstd = nstd + list(feature[i][2]) * feature[i][4]
-            nmean = nmean + list(feature[i][3]) * feature[i][4]
-            nsig = nsig + feature[i][1]
-            for k in range(i, i + windows_size):
-                nbase = nbase + list(feature[k][5]) * feature[k][4]
-                nstd = nstd + list(feature[k][2]) * feature[k][4]
-                nmean = nmean + list(feature[k][3]) * feature[k][4]
-                nsig = nsig + feature[k][1]
+                expand(feature, k, nbase, nsig, signal_sample)
+                flag += 1
+            for k in range(i, i + windows_size + 1):
+                expand(feature, k, nbase, nsig, signal_sample)
+                flag += 1
+            if flag != base_num:
+                logger.error("focus base expand number is {}".format(flag))
         # feature[read_id][i].update({'nbase':nbase,'nsig':nsig,'nstd':nstd,'nmean':nmean})
-        nfeature.append([feature[i][0], nbase, nsig, nstd, nmean])
+        nfeature.append([feature[i][0], nbase, nsig])
 
         # 0:read_id,1:nbase,2:nsig,3:nstd,4:nmean
-        # LOGGER.debug('feature id: {}, feature:{}'.format(str(feature[0]),(str(nbase),str(nsig),str(nstd),str(nmean))))
+        # logger.debug('feature id: {}, feature:{}'.format(str(feature[0]),(str(nbase),str(nsig),str(nstd),str(nmean))))
     return nfeature
 
 
-# 0:read_id,1:signal,2:to_pA_shift,3:to_pA_scale,4:sequence,5:stride,6:mv_table,7:num_trimmed,8:to_norm_shift,9:to_norm_scale
-def norm_signal_read_id(signal):
-    shift_scale_norm = []
-    signal_norm = []
-    shift_scale_norm = [(signal[8] / signal[3]) - signal[2], (signal[9] / signal[3])]
-    # 0:shift,1:scale
 
+# 0:read_id,1:signal,2:to_pA_shift,3:to_pA_scale,4:sequence,5:stride,6:mv_table,7:num_trimmed,8:to_norm_shift,9:to_norm_scale
+def norm_signal_read_id(signal) -> np.array:
+    shift_scale_norm = []
+    # signal_norm=[]
+    if signal[3] == 0:
+        logger.critical("to_pA_scale of read {} is 0").format(signal[0])
+    shift_scale_norm = [
+        (signal[8] / signal[3]) - np.float16(signal[2]),
+        (signal[9] / signal[3]),
+    ]
+    # 0:shift,1:scale
     num_trimmed = signal[7]
     # print('num_trimmed:{} and signal:{}'.format(num_trimmed,signal[1]))
     # print('shift:{} and scale:{}'.format(shift_scale_norm[0],shift_scale_norm[1]))
-    signal_norm = (signal[1][num_trimmed:] - shift_scale_norm[0]) / shift_scale_norm[1]
+    if shift_scale_norm[1] == 0:
+        logger.critical("scale of read {} is 0").format(signal[0])
+    if num_trimmed >= 0:
+        signal_norm = (
+            signal[1][num_trimmed:].astype(np.float16) - shift_scale_norm[0]
+        ) / shift_scale_norm[1]
+    else:
+        signal_norm = (
+            signal[1][:num_trimmed].astype(np.float16) - shift_scale_norm[0]
+        ) / shift_scale_norm[1]
+
     return signal_norm
 
 
-def caculate_batch_feature_for_each_base(read_batch):
-    print("extrac_features process-{} starts".format(os.getpid()))
-    LOGGER.info("extrac_features process-{} starts".format(os.getpid()))
+def caculate_batch_feature_for_each_base(read_q, feature_q, base_num=0, write_batch=10):
+    # print("extrac_features process-{} starts".format(os.getpid()))
+    logger.info("extrac_features process-{} starts".format(os.getpid()))
     read_num = 0
-    base_num = 21
-    for read_one in read_batch:
-        feature = []
-        # print(read_one)
-        sequence = read_one[4]
-        stride = read_one[5]
-        movetable = read_one[6]
-        # num_trimmed = read[read_id]['num_trimmed']
-        trimed_signals = norm_signal_read_id(read_one)  # 筛掉背景信号,norm
-        move_pos = np.append(np.argwhere(movetable == 1).flatten(), len(movetable))
-        # print(len(move_pos))
-        for move_idx in range(len(move_pos) - 1):
-            start, end = move_pos[move_idx], move_pos[move_idx + 1]
-            signal = trimed_signals[(start * stride) : (end * stride)].tolist()
-            mean = np.mean(signal)
-            std = np.std(signal)
-            num = end - start
-            # print(move_idx)
-            feature.append(
-                [
-                    read_one[0],
-                    signal,
-                    str(std),
-                    str(mean),
-                    int(num * stride),
-                    sequence[move_idx],
-                ]
-            )
-            # 0:read_id,1:signal,2:std,3:mean,4:num,5:base
-            # feature[read_id].append({'signal':signal,'std':str(std),'mean':str(mean),'num':int(num*stride),'base':sequence[move_idx]})
-        if base_num != 0:
-            nfeature = _get_neighbord_feature(feature, base_num)
-            LOGGER.debug("extract neigbor features for read_id:{}".format(read_one[0]))
-            yield nfeature
-    LOGGER.info(
-        "extrac_features process-{} ending, proceed {} read batch".format(
+
+    while True:
+        if read_q.empty():
+            time.sleep(2)
+            continue
+        # lock.acquire()#thread safe
+        read_batch = read_q.get()
+        # lock.release()
+        if read_batch == "kill":
+            read_q.put("kill")
+            # time.sleep(10)
+            break
+        read_num += len(read_batch)
+        # flag=0
+        # if len(read_batch)>1:
+        #    flag=1
+        #    pos=bar_q.get()
+        #    caculate_bar = tqdm(total = len(read_batch), desc='extract_feature', position=pos)
+        #    bar_q.put(pos+1)
+        # else:
+        #    flag=0
+        logger.info("read batch size: {}".format(len(read_batch)))
+        nfeature = []
+        for read_one in read_batch:
+            feature = []
+            #    if flag == 1:
+            #        caculate_bar.update()
+            # print(read_one)
+            sequence = read_one[4]  # 这个转成np.array内存占用大很多
+            stride = read_one[5]
+            movetable = np.array(read_one[6])
+            # num_trimmed = read[read_id]['num_trimmed']
+            trimed_signals = norm_signal_read_id(read_one)  # 筛掉背景信号,norm
+            if trimed_signals.size == 0:
+                logger.critical("norm has error, raw data is {}".format(read_one))
+                continue
+            move_pos = np.append(np.argwhere(movetable == 1).flatten(), len(movetable))
+            # print(len(move_pos))
+
+            for move_idx in range(len(move_pos) - 1):
+                start, end = move_pos[move_idx], move_pos[move_idx + 1]
+                signal = trimed_signals[(start * stride) : (end * stride)]  # .tolist()
+                if signal.size == 0:
+                    logger.critical(
+                        "signal is empty, it's crazy, read id is {} and base index is".format(
+                            read_one[0], move_idx
+                        )
+                    )
+                    continue
+                if True in np.isnan(signal):
+                    logger.critical("signal has nan for read_id:{}".format(read_one[0]))
+
+                try:
+                    mean = np.mean(signal)
+                    if np.amax(signal) < mean:
+                        logger.critical(
+                            "ValueERROR: mean greater than max for read_id:{}".format(
+                                read_one[0]
+                            )
+                        )
+                except Exception as e:
+                    logger.critical(signal)
+                std = np.std(signal.astype(np.float32))  # np.float16会溢出
+                num = end - start
+
+                feature.append(
+                    [
+                        read_one[0],
+                        signal,
+                        np.float16(std),
+                        np.float16(mean),
+                        np.int8(num * stride),
+                        sequence[move_idx],
+                    ]
+                )
+                # 0:read_id,1:signal,2:std,3:mean,4:num,5:base
+                # feature[read_id].append({'signal':signal,'std':str(std),'mean':str(mean),'num':int(num*stride),'base':sequence[move_idx]})
+            if base_num != 0:
+                nfeature.append(_get_neighbord_feature(sequence, feature, base_num))
+                logger.info(
+                    "extract neigbor features for read_id:{}".format(read_one[0])
+                )
+                if len(nfeature) == write_batch:
+                    # lock.acquire()
+                    feature_q.put(nfeature)
+                    # lock.release()
+                    nfeature = []
+                    while feature_q.qsize() > 50:
+                        time.sleep(2)
+                        if feature_q.full():
+                            logger.error("queue full")
+
+            # feature_q.put(feature)
+        if len(nfeature) != 0:
+            # lock.acquire()
+            feature_q.put(nfeature)
+            # lock.release()
+            nfeature = []
+        # feature_q.append(feature)
+
+        # print("extrac_features process-{} ending, proceed {} read batch".format(os.getpid(), read_num))
+    logger.info(
+        "extrac_features process-{} ending, proceed {} read".format(
             os.getpid(), read_num
         )
     )
+    # if caculate_bar is not None:
+    #    caculate_bar.close()
+    # pbar.close()
 
 
-def _prepare_read(read, batch_size=1000):
+def _prepare_read(read_q, read, batch_size=1000):
     i = 0
     # j=0
     read_batch = []
@@ -288,101 +493,169 @@ def _prepare_read(read, batch_size=1000):
         #    break
         if i == batch_size:
             i = 0
-            yield read_batch
+            if read_q.full():
+                logger.critical("read_q is full")
+            read_q.put(read_batch)
             read_batch = []
-    LOGGER.info("total batch number is {}".format((len(read) - 1) // batch_size + 1))
-    yield read_batch
+    if len(read) % batch_size != 0:
+        read_q.put(np.array(read_batch, dtype=object))
+    # print('total batch number is {}'.format((len(read)-1)//batch_size+1))
+    logger.info("total batch number is {}".format((len(read) - 1) // batch_size + 1))
+    # return len(read)
 
 
-def write_feature(feature_batch):
+def write_feature(read_number, file, feature_q):
     # print("write_process-{} starts".format(os.getpid()))
-    LOGGER.info("write_process-{} starts".format(os.getpid()))
-    dataset = []
+    logger.info("write_process-{} starts".format(os.getpid()))
+    #dataset = []
     # pos=bar_q.get()
-    # write_feature_bar = tqdm(total = read_number, desc='write_feature', position=pos,colour='green')
+    write_feature_bar = tqdm(
+        total=read_number,
+        desc="extract feature",
+        position=0,
+        colour="green",
+        unit=" read",
+    )
     # bar_q.put(pos+1)
     try:
-        LOGGER.info("write process get bases number:{}".format(len(feature_batch)))
-        for feature in feature_batch:
-            dataset.append(feature)
-        np_data = np.array(dataset)
-        np.save("/home/xiaoyf/methylation/deepsignal/log/data.npy", np_data)
+        with open(file, "w") as f:
+            while True:
+                if feature_q.empty():
+                    time.sleep(1)
+                    continue
+                write_batch = feature_q.get()
+                if write_batch == "kill":
+                    logger.info("write_process-{} finished".format(os.getpid()))
+                    # time.sleep(10)
+                    # np_data = np.array(dataset,dtype=object)
+                    # np.save('/home/xiaoyf/methylation/deepsignal/log/data.npy', np_data)
+                    # 包含neigbor feature的40条reads保存成npy需要27.87GB，这个开销是无法忍受的
+                    # print('write_process-{} finished'.format(os.getpid()))
 
+                    break
+
+                # logger.debug('feature id: {}'.format(str(features[0][0])))
+                for read in write_batch:
+                    write_feature_bar.update()
+                    logger.info(
+                        "write process get neigbor features number:{}".format(len(read))
+                    )
+                    for feature in read:
+                        # 0:read_id,1:nbase,2:nsig,3:nstd,4:nmean
+                        # #f.write(read_id+'\t')
+                        read_id = feature[0]
+                        seq = ";".join([",".join([y for y in x]) for x in feature[1]])
+                        signal = ";".join(
+                            [",".join([str(y) for y in x]) for x in feature[2]]
+                        )
+                        one_features_str = "\t".join([read_id, seq, signal])
+                        f.write(one_features_str + "\n")
+                        # np.savetxt(f,np.array("\t".join([read_id,seq,signal])))
+                        # dataset.append(feature)
+                        # f.write(str(feature[0])+'\t'+str(feature[1])+
+                        #        '\t'+str(feature[2])+'\n')
+
+                f.flush()
     except Exception as e:
-        LOGGER.error("error in writing features")
-        print(e)
-    # finally:
+        logger.critical(
+            "error in writing features, this always happend because memory not enough"
+        )
+        except_type, except_value, except_traceback = sys.exc_info()
+        except_file = os.path.split(except_traceback.tb_frame.f_code.co_filename)[1]
+        exc_dict = {
+            "error type": except_type,
+            "error imformation": except_value,
+            "error file": except_file,
+            "error line": except_traceback.tb_lineno,
+        }
+        print(exc_dict)
+    finally:
+        write_feature_bar.close()
 
-    # write_pbar.close()
 
-
-def bar_listener(p_bar, desc="", position=1, number=4000):
-    bar = tqdm(total=number, desc=desc, position=position)
-    for item in iter(p_bar.get, None):
-        bar.update(item)
-
-
-def extract_feature(read, output_file, nproc=4, batch_size=20):
+def extract_feature(read, output_file, nproc=4, batch_size=20, window_size=21):
     start = time.time()
-    # feature_q = Queue()
-    # read_q=Queue()
+    feature_q = Queue()
+    read_q = Queue()
     # bar=Queue()
     # bar.put(0)
     # caculate_batch_feature_pbar = Manager().Queue()
     # write_pbar = Manager().Queue()
-    # _prepare_read(read,batch_size)
+    _prepare_read(read_q, read, batch_size)
     read_number = len(read)
     feature_procs = []
-    # read_q.put("kill")
-    write_filename = output_file
+    read_q.put("kill")
+    # manager = mp.Manager()
+    # lock = manager.Lock() #初始化一把锁
+
     # extract_feature_bar = mp.Process(target=bar_listener, args=(caculate_batch_feature_pbar, "extract_features", 1,))
     # extract_feature_bar.daemon = True
     # extract_feature_bar.start()
 
-    # pool = Pool(nproc)
-    with Pool(nproc) as p:
-        # p.map(caculate_batch_feature_for_each_base, _prepare_read)
-        tqdm(
-            p.imap(
-                write_feature,
-                tqdm(
-                    caculate_batch_feature_for_each_base(
-                        _prepare_read(read, batch_size)
-                    ),
-                    total=read_number,
-                    desc="extract_features",
-                ),
+    for _ in range(nproc):
+        p = mp.Process(
+            target=caculate_batch_feature_for_each_base,
+            args=(
+                read_q,
+                feature_q,
+                window_size,
             ),
-            total=read_number,
-            desc="write_features",
         )
+        p.daemon = True
+        p.start()
+        feature_procs.append(p)
+
+    #write_filename = "/home/xiaoyf/methylation/deepsignal/log/data.npy"
 
     # write_feature_bar = mp.Process(target=bar_listener, args=(write_pbar, "write_features", 2,))
     # write_feature_bar.daemon = True
     # write_feature_bar.start()
     # tqdm(total = 4000, desc="write_features", position=1)
 
-    # p_w = mp.Process(target=write_feature, args=(read_number,bar,write_filename,feature_q,))
-    # p_w.daemon = False
-    # p_w.start()
+    p_w = mp.Process(
+        target=write_feature,
+        args=(
+            read_number,
+            output_file,
+            feature_q,
+        ),
+    )
+    p_w.daemon = True
+    p_w.start()
     # with tqdm(total = read_number, desc='extract_feature', position=0) as pbar:
-    # for p in feature_procs:
-    #    p.join()
+    for p in feature_procs:
+        p.join()
 
     # caculate_bar.close()
-    # feature_q.put("kill")
-    # p_w.join()
+    # while True:
+    #    flag=0
+    #    for p in feature_procs:
+    #        if not p.is_alive():
+    #            flag+=1
+    #    if flag==0:
+    #        break
+    #    if flag!=0 and not p_w.is_alive():
+    #        logger.error("p_w terminate error")
+    #        p_w.join()
+    #        p_w.start()
+    while True:
+        flag = 0
+        for p in feature_procs:
+            if p.is_alive():
+                flag += 1
+        if flag == 0:
+            break
+    feature_q.put("kill")
+    p_w.join()
     # write_feature_bar.close()
 
     # extract_feature_bar.join()
     # write_feature_bar.join()
     # print("[main]extract_features costs %.1f seconds.." %(time.time() - start))
-    LOGGER.info("[main]extract_features costs %.1f seconds.." % (time.time() - start))
-
+    logger.info("[main]extract_features costs %.1f seconds.." % (time.time() - start))
 
 if __name__ == "__main__":
-    args = parse_args()
-    init_logger(args.log_file)
+    
     batch_size = args.batch_size
     window_size = args.window_size
     output_file = args.output_file
@@ -392,4 +665,4 @@ if __name__ == "__main__":
     nproc = args.nproc
 
     read = read_from_pod5_bam(pod5_path, bam_path)
-    extract_feature(read, output_file, nproc, batch_size)
+    extract_feature(read, output_file, nproc, batch_size,window_size)
