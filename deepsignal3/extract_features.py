@@ -50,7 +50,33 @@ def extract_signal_from_pod5(pod5_path) -> np.array:
     return np.array(signals, dtype=object)  # np.array is small than list
 
 
+def get_read_ids(bam_idx, pod5_fh, num_reads):
+    """Get overlapping read ids from bam index and pod5 file
 
+    Args:
+        bam_idx (ReadIndexedBam): Read indexed BAM
+        pod5_fh (pod5.Reader): POD5 file handle
+        num_reads (int): Maximum number of reads, or None for no max
+    """
+    LOGGER.info("Extracting read IDs from POD5")
+    pod5_read_ids = set(pod5_fh.read_ids)
+    num_pod5_reads = len(pod5_read_ids)
+    # pod5 will raise when it cannot find a "selected" read id, so we make
+    # sure they're all present before starting
+    # todo(arand) this could be performed using the read_table instead, but
+    #  it's worth checking that it's actually faster and doesn't explode
+    #  memory before switching from a sweep throug the pod5 file
+    both_read_ids = list(pod5_read_ids.intersection(bam_idx.read_ids))
+    num_both_read_ids = len(both_read_ids)
+    logger.info(
+        f"Found {bam_idx.num_reads} BAM records, {num_pod5_reads} "
+        f"POD5 reads, and {num_both_read_ids} in common"
+    )
+    if num_reads is None:
+        num_reads = num_both_read_ids
+    else:
+        num_reads = min(num_reads, num_both_read_ids)
+    return both_read_ids, num_reads
 def extract_move_from_bam(bam_path) -> np.array:
     seq_move = []
     bamfile = pysam.AlignmentFile(bam_path, "rb", check_sq=False)
