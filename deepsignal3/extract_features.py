@@ -13,6 +13,7 @@ from multiprocessing import Pool
 import random
 from utils.utils import parse_args
 from utils.log import get_logger, init_logger
+from utils import constants
 
 args = parse_args()
 signal.signal(signal.SIGPIPE, signal.SIG_IGN)  # 忽略SIGPIPE信号
@@ -37,12 +38,13 @@ def extract_signal_from_pod5(pod5_path) -> np.array:
                 logger.critical(
                     "Signal is None for read id {}".format(read_record.read_id)
                 )
-            # signals[str(read_record.read_id)] = {'signal':read_record.signal,'shift':read_record.calibration.offset,'scale':read_record.calibration.scale}#不加str会变成UUID，很奇怪
+            # signals[str(read_record.read_id)] =
+            # {'signal':read_record.signal,'shift':read_record.calibration.offset,'scale':read_record.calibration.scale}#不加str会变成UUID，很奇怪
             signals.append(
                 [
                     str(read_record.read_id),
-                    read_record.signal.astype(np.int8),
-                    np.int8(read_record.calibration.offset),
+                    read_record.signal.astype(np.int16),
+                    np.int16(read_record.calibration.offset),
                     np.float16(read_record.calibration.scale),
                 ]
             )
@@ -58,7 +60,7 @@ def get_read_ids(bam_idx, pod5_fh, num_reads):
         pod5_fh (pod5.Reader): POD5 file handle
         num_reads (int): Maximum number of reads, or None for no max
     """
-    LOGGER.info("Extracting read IDs from POD5")
+    logger.info("Extracting read IDs from POD5")
     pod5_read_ids = set(pod5_fh.read_ids)
     num_pod5_reads = len(pod5_read_ids)
     # pod5 will raise when it cannot find a "selected" read id, so we make
@@ -77,6 +79,8 @@ def get_read_ids(bam_idx, pod5_fh, num_reads):
     else:
         num_reads = min(num_reads, num_both_read_ids)
     return both_read_ids, num_reads
+
+
 def extract_move_from_bam(bam_path) -> np.array:
     seq_move = []
     bamfile = pysam.AlignmentFile(bam_path, "rb", check_sq=False)
@@ -93,9 +97,9 @@ def extract_move_from_bam(bam_path) -> np.array:
                 [
                     read.query_name,
                     read.query_sequence,
-                    np.int8(mv_tag[0]),
-                    np.array(mv_tag[1:], dtype=np.int8),
-                    np.int8(ts_tag),
+                    np.int16(mv_tag[0]),
+                    np.array(mv_tag[1:], dtype=np.int16),
+                    np.int16(ts_tag),
                     np.float16(sm_tag),
                     np.float16(sd_tag),
                 ]
@@ -112,9 +116,9 @@ def extract_move_from_bam(bam_path) -> np.array:
                 [
                     read.query_name,
                     read.query_sequence,
-                    np.int8(mv_tag[0]),
-                    np.array(mv_tag[1:], dtype=np.int8),
-                    np.int8(ts_tag),
+                    np.int16(mv_tag[0]),
+                    np.array(mv_tag[1:], dtype=np.int16),
+                    np.int16(ts_tag),
                     np.float16(sm_tag),
                     np.float16(sd_tag),
                 ]
@@ -122,7 +126,6 @@ def extract_move_from_bam(bam_path) -> np.array:
             # 0:read_id,1:sequence,2:stride,3:mv_table,4:num_trimmed,5:to_norm_shift,6:to_norm_scale
             # read[read.query_name] = {"sequence":read.query_sequence,"stride":mv_tag[0],"mv_table":np.array(mv_tag[1:]),"num_trimmed":ts_tag,"shift":sm_tag,"scale":sd_tag}
     return np.array(seq_move, dtype=object)
-
 
 
 def read_from_pod5_bam(pod5_path, bam_path, read_id=None) -> np.array:
@@ -137,16 +140,16 @@ def read_from_pod5_bam(pod5_path, bam_path, read_id=None) -> np.array:
                         if signal[j][0] == seq_move[i][0]:
                             read.append(
                                 [
-                                    signal[j][0],
-                                    signal[j][1],
-                                    signal[j][2],
-                                    signal[j][3],
-                                    seq_move[i][1],
-                                    seq_move[i][2],
-                                    seq_move[i][3],
-                                    seq_move[i][4],
-                                    seq_move[i][5],
-                                    seq_move[i][6],
+                                    signal[j][constants.POD5_READ_ID],
+                                    signal[j][constants.POD5_SIGNAL],
+                                    signal[j][constants.POD5_SHIFT],
+                                    signal[j][constants.POD5_SCALE],
+                                    seq_move[i][constants.BAM_SEQ],
+                                    seq_move[i][constants.BAM_STRIDE],
+                                    seq_move[i][constants.BAM_MV_TABLE],
+                                    seq_move[i][constants.BAM_NUM_TRIMMED],
+                                    seq_move[i][constants.BAM_TO_NORM_SHIFT],
+                                    seq_move[i][constants.BAM_TO_NORM_SCALE],
                                 ]
                             )
 
@@ -157,56 +160,21 @@ def read_from_pod5_bam(pod5_path, bam_path, read_id=None) -> np.array:
                     if signal[j][0] == seq_move[i][0]:
                         read.append(
                             [
-                                signal[j][0],
-                                signal[j][1],
-                                signal[j][2],
-                                signal[j][3],
-                                seq_move[i][1],
-                                seq_move[i][2],
-                                seq_move[i][3],
-                                seq_move[i][4],
-                                seq_move[i][5],
-                                seq_move[i][6],
+                                signal[j][constants.POD5_READ_ID],
+                                signal[j][constants.POD5_SIGNAL],
+                                signal[j][constants.POD5_SHIFT],
+                                signal[j][constants.POD5_SCALE],
+                                seq_move[i][constants.BAM_SEQ],
+                                seq_move[i][constants.BAM_STRIDE],
+                                seq_move[i][constants.BAM_MV_TABLE],
+                                seq_move[i][constants.BAM_NUM_TRIMMED],
+                                seq_move[i][constants.BAM_TO_NORM_SHIFT],
+                                seq_move[i][constants.BAM_TO_NORM_SCALE],
                             ]
                         )
                 # 0:read_id,1:signal,2:to_pA_shift,3:to_pA_scale,4:sequence,5:stride,6:mv_table,7:num_trimmed,8:to_norm_shift,9:to_norm_scale
 
     return np.array(read, dtype=object)
-
-iupac_alphabets = {
-    "A": ["A"],
-    "T": ["T"],
-    "C": ["C"],
-    "G": ["G"],
-    "R": ["A", "G"],
-    "M": ["A", "C"],
-    "S": ["C", "G"],
-    "Y": ["C", "T"],
-    "K": ["G", "T"],
-    "W": ["A", "T"],
-    "B": ["C", "G", "T"],
-    "D": ["A", "G", "T"],
-    "H": ["A", "C", "T"],
-    "V": ["A", "C", "G"],
-    "N": ["A", "C", "G", "T"],
-}
-iupac_alphabets_rna = {
-    "A": ["A"],
-    "C": ["C"],
-    "G": ["G"],
-    "U": ["U"],
-    "R": ["A", "G"],
-    "M": ["A", "C"],
-    "S": ["C", "G"],
-    "Y": ["C", "U"],
-    "K": ["G", "U"],
-    "W": ["A", "U"],
-    "B": ["C", "G", "U"],
-    "D": ["A", "G", "U"],
-    "H": ["A", "C", "U"],
-    "V": ["A", "C", "G"],
-    "N": ["A", "C", "G", "U"],
-}
 
 
 def get_refloc_of_methysite_in_motif(seqstr, motifset, methyloc_in_motif=0) -> list:
@@ -222,7 +190,7 @@ def get_refloc_of_methysite_in_motif(seqstr, motifset, methyloc_in_motif=0) -> l
     motiflen = len(list(motifset)[0])
     sites = []
     for i in range(0, strlen - motiflen + 1):
-        if seqstr[i : i + motiflen] in motifset:
+        if seqstr[i: i + motiflen] in motifset:
             sites.append(i + methyloc_in_motif)
     return sites
 
@@ -231,9 +199,9 @@ def _convert_motif_seq(ori_seq, is_dna=True):
     outbases = []
     for bbase in ori_seq:
         if is_dna:
-            outbases.append(iupac_alphabets[bbase])
+            outbases.append(constants.iupac_alphabets[bbase])
         else:
-            outbases.append(iupac_alphabets_rna[bbase])
+            outbases.append(constants.iupac_alphabets_rna[bbase])
 
     def recursive_permute(bases_list):
         if len(bases_list) == 1:
@@ -259,6 +227,7 @@ def get_motif_seqs(motifs, is_dna=True):
     for ori_motif in ori_motif_seqs:
         motif_seqs += _convert_motif_seq(ori_motif.strip().upper(), is_dna)
     return motif_seqs
+
 
 def expand(feature, index, nbase, nsig, num, fill_num=1):
     # nbase.append(np.tile(np.array(feature[index][5],dtype=str),num*fill_num))
@@ -363,30 +332,30 @@ def _get_neighbord_feature(sequence, feature, base_num) -> list:
     return nfeature
 
 
-
 # 0:read_id,1:signal,2:to_pA_shift,3:to_pA_scale,4:sequence,5:stride,6:mv_table,7:num_trimmed,8:to_norm_shift,9:to_norm_scale
 def norm_signal_read_id(signal) -> np.array:
     shift_scale_norm = []
     # signal_norm=[]
-    if signal[3] == 0:
+    if signal[constants.READ_TO_PA_SCALE] == 0:
         logger.critical("to_pA_scale of read {} is 0").format(signal[0])
     shift_scale_norm = [
-        (signal[8] / signal[3]) - np.float16(signal[2]),
-        (signal[9] / signal[3]),
+        (signal[constants.READ_TO_NORM_SHIFT] / signal[constants.READ_TO_PA_SCALE]) -
+        np.float16(signal[constants.READ_TO_PA_SHIFT]),  # SHIFT
+        (signal[constants.READ_TO_NORM_SCALE] / signal[constants.READ_TO_PA_SCALE]),  # SCALE
     ]
     # 0:shift,1:scale
-    num_trimmed = signal[7]
+    num_trimmed = signal[constants.READ_NUM_TRIMMED]
     # print('num_trimmed:{} and signal:{}'.format(num_trimmed,signal[1]))
     # print('shift:{} and scale:{}'.format(shift_scale_norm[0],shift_scale_norm[1]))
-    if shift_scale_norm[1] == 0:
-        logger.critical("scale of read {} is 0").format(signal[0])
+    if shift_scale_norm[constants.READ_SIGNAL] == 0:
+        logger.critical("scale of read {} is 0").format(signal[constants.READ_ID])
     if num_trimmed >= 0:
         signal_norm = (
-            signal[1][num_trimmed:].astype(np.float16) - shift_scale_norm[0]
+            signal[constants.READ_SIGNAL][num_trimmed:].astype(np.float16) - shift_scale_norm[0]
         ) / shift_scale_norm[1]
     else:
         signal_norm = (
-            signal[1][:num_trimmed].astype(np.float16) - shift_scale_norm[0]
+            signal[constants.READ_SIGNAL][:num_trimmed].astype(np.float16) - shift_scale_norm[0]
         ) / shift_scale_norm[1]
 
     return signal_norm
@@ -424,20 +393,22 @@ def caculate_batch_feature_for_each_base(read_q, feature_q, base_num=0, write_ba
             #    if flag == 1:
             #        caculate_bar.update()
             # print(read_one)
-            sequence = read_one[4]  # 这个转成np.array内存占用大很多
-            stride = read_one[5]
-            movetable = np.array(read_one[6])
+            sequence = read_one[constants.READ_SEQ]  # 这个转成np.array内存占用大很多
+            stride = read_one[constants.READ_STRIDE]
+            movetable = np.array(read_one[constants.READ_MV_TABLE])
             # num_trimmed = read[read_id]['num_trimmed']
             trimed_signals = norm_signal_read_id(read_one)  # 筛掉背景信号,norm
             if trimed_signals.size == 0:
-                logger.critical("norm has error, raw data is {}".format(read_one))
+                logger.critical(
+                    "norm has error, raw data is {}".format(read_one))
                 continue
-            move_pos = np.append(np.argwhere(movetable == 1).flatten(), len(movetable))
+            move_pos = np.append(np.argwhere(
+                movetable == 1).flatten(), len(movetable))
             # print(len(move_pos))
 
             for move_idx in range(len(move_pos) - 1):
                 start, end = move_pos[move_idx], move_pos[move_idx + 1]
-                signal = trimed_signals[(start * stride) : (end * stride)]  # .tolist()
+                signal = trimed_signals[(start * stride): (end * stride)]  # .tolist()
                 if signal.size == 0:
                     logger.critical(
                         "signal is empty, it's crazy, read id is {} and base index is".format(
@@ -446,7 +417,8 @@ def caculate_batch_feature_for_each_base(read_q, feature_q, base_num=0, write_ba
                     )
                     continue
                 if True in np.isnan(signal):
-                    logger.critical("signal has nan for read_id:{}".format(read_one[0]))
+                    logger.critical(
+                        "signal has nan for read_id:{}".format(read_one[0]))
 
                 try:
                     mean = np.mean(signal)
@@ -458,7 +430,7 @@ def caculate_batch_feature_for_each_base(read_q, feature_q, base_num=0, write_ba
                         )
                 except Exception as e:
                     logger.critical(signal)
-                std = np.std(signal.astype(np.float32))  # np.float16会溢出
+                std = np.std(signal.astype(np.float64))  # np.float16会溢出，好像32也不够用了，直接上64吧
                 num = end - start
 
                 feature.append(
@@ -467,16 +439,18 @@ def caculate_batch_feature_for_each_base(read_q, feature_q, base_num=0, write_ba
                         signal,
                         np.float16(std),
                         np.float16(mean),
-                        np.int8(num * stride),
+                        np.int16(num * stride),
                         sequence[move_idx],
                     ]
                 )
                 # 0:read_id,1:signal,2:std,3:mean,4:num,5:base
                 # feature[read_id].append({'signal':signal,'std':str(std),'mean':str(mean),'num':int(num*stride),'base':sequence[move_idx]})
             if base_num != 0:
-                nfeature.append(_get_neighbord_feature(sequence, feature, base_num))
+                nfeature.append(_get_neighbord_feature(
+                    sequence, feature, base_num))
                 logger.info(
-                    "extract neigbor features for read_id:{}".format(read_one[0])
+                    "extract neigbor features for read_id:{}".format(
+                        read_one[0])
                 )
                 if len(nfeature) == write_batch:
                     # lock.acquire()
@@ -526,14 +500,15 @@ def _prepare_read(read_q, read, batch_size=1000):
     if len(read) % batch_size != 0:
         read_q.put(np.array(read_batch, dtype=object))
     # print('total batch number is {}'.format((len(read)-1)//batch_size+1))
-    logger.info("total batch number is {}".format((len(read) - 1) // batch_size + 1))
+    logger.info("total batch number is {}".format(
+        (len(read) - 1) // batch_size + 1))
     # return len(read)
 
 
 def write_feature(read_number, file, feature_q):
     # print("write_process-{} starts".format(os.getpid()))
     logger.info("write_process-{} starts".format(os.getpid()))
-    #dataset = []
+    # dataset = []
     # pos=bar_q.get()
     write_feature_bar = tqdm(
         total=read_number,
@@ -551,7 +526,8 @@ def write_feature(read_number, file, feature_q):
                     continue
                 write_batch = feature_q.get()
                 if write_batch == "kill":
-                    logger.info("write_process-{} finished".format(os.getpid()))
+                    logger.info(
+                        "write_process-{} finished".format(os.getpid()))
                     # time.sleep(10)
                     # np_data = np.array(dataset,dtype=object)
                     # np.save('/home/xiaoyf/methylation/deepsignal/log/data.npy', np_data)
@@ -564,13 +540,15 @@ def write_feature(read_number, file, feature_q):
                 for read in write_batch:
                     write_feature_bar.update()
                     logger.info(
-                        "write process get neigbor features number:{}".format(len(read))
+                        "write process get neigbor features number:{}".format(
+                            len(read))
                     )
                     for feature in read:
                         # 0:read_id,1:nbase,2:nsig,3:nstd,4:nmean
                         # #f.write(read_id+'\t')
                         read_id = feature[0]
-                        seq = ";".join([",".join([y for y in x]) for x in feature[1]])
+                        seq = ";".join([",".join([y for y in x])
+                                       for x in feature[1]])
                         signal = ";".join(
                             [",".join([str(y) for y in x]) for x in feature[2]]
                         )
@@ -587,7 +565,8 @@ def write_feature(read_number, file, feature_q):
             "error in writing features, this always happend because memory not enough"
         )
         except_type, except_value, except_traceback = sys.exc_info()
-        except_file = os.path.split(except_traceback.tb_frame.f_code.co_filename)[1]
+        except_file = os.path.split(
+            except_traceback.tb_frame.f_code.co_filename)[1]
         exc_dict = {
             "error type": except_type,
             "error imformation": except_value,
@@ -631,7 +610,7 @@ def extract_feature(read, output_file, nproc=4, batch_size=20, window_size=21):
         p.start()
         feature_procs.append(p)
 
-    #write_filename = "/home/xiaoyf/methylation/deepsignal/log/data.npy"
+    # write_filename = "/home/xiaoyf/methylation/deepsignal/log/data.npy"
 
     # write_feature_bar = mp.Process(target=bar_listener, args=(write_pbar, "write_features", 2,))
     # write_feature_bar.daemon = True
@@ -678,17 +657,19 @@ def extract_feature(read, output_file, nproc=4, batch_size=20, window_size=21):
     # extract_feature_bar.join()
     # write_feature_bar.join()
     # print("[main]extract_features costs %.1f seconds.." %(time.time() - start))
-    logger.info("[main]extract_features costs %.1f seconds.." % (time.time() - start))
+    logger.info("[main]extract_features costs %.1f seconds.." %
+                (time.time() - start))
+
 
 if __name__ == "__main__":
-    
+
     batch_size = args.batch_size
     window_size = args.window_size
     output_file = args.output_file
     log_file = args.log_file
     pod5_path = args.pod5_file
     bam_path = args.bam_file
-    nproc = args.nproc
+    nproc = max(mp.cpu_count() - 2, args.nproc)
 
     read = read_from_pod5_bam(pod5_path, bam_path)
-    extract_feature(read, output_file, nproc, batch_size,window_size)
+    extract_feature(read, output_file, nproc, batch_size, window_size)

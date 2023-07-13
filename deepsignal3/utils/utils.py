@@ -28,7 +28,7 @@ def parse_args():
         help="bam file store address.",
     )
     parser.add_argument(
-        "--nproc", type=int, default=400, help="number of processes in extract features."
+        "--nproc", type=int, default=4, help="minimum number of processes in extract features."
     )
     parser.add_argument(
         "--batch-size", type=int, default=200, help="size of batch in extract features."

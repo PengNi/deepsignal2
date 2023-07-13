@@ -1,0 +1,57 @@
+iupac_alphabets = {
+    "A": ["A"],
+    "T": ["T"],
+    "C": ["C"],
+    "G": ["G"],
+    "R": ["A", "G"],
+    "M": ["A", "C"],
+    "S": ["C", "G"],
+    "Y": ["C", "T"],
+    "K": ["G", "T"],
+    "W": ["A", "T"],
+    "B": ["C", "G", "T"],
+    "D": ["A", "G", "T"],
+    "H": ["A", "C", "T"],
+    "V": ["A", "C", "G"],
+    "N": ["A", "C", "G", "T"],
+}
+iupac_alphabets_rna = {
+    "A": ["A"],
+    "C": ["C"],
+    "G": ["G"],
+    "U": ["U"],
+    "R": ["A", "G"],
+    "M": ["A", "C"],
+    "S": ["C", "G"],
+    "Y": ["C", "U"],
+    "K": ["G", "U"],
+    "W": ["A", "U"],
+    "B": ["C", "G", "U"],
+    "D": ["A", "G", "U"],
+    "H": ["A", "C", "U"],
+    "V": ["A", "C", "G"],
+    "N": ["A", "C", "G", "U"],
+}
+
+POD5_READ_ID = 0
+POD5_SIGNAL = 1
+POD5_SHIFT = 2
+POD5_SCALE = 3
+
+BAM_SEQ = 1
+BAM_STRIDE = 2
+BAM_MV_TABLE = 3
+BAM_NUM_TRIMMED = 4
+BAM_TO_NORM_SHIFT = 5
+BAM_TO_NORM_SCALE = 5
+
+READ_ID = 0
+READ_SIGNAL = 1
+READ_TO_PA_SHIFT = 2
+READ_TO_PA_SCALE = 3
+READ_SEQ = 4
+READ_STRIDE = 5
+READ_MV_TABLE = 6
+READ_NUM_TRIMMED = 7
+READ_TO_NORM_SHIFT = 8
+READ_TO_NORM_SCALE = 9
