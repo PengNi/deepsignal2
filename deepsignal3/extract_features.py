@@ -11,6 +11,7 @@ import logging
 from tqdm import tqdm
 from multiprocessing import Pool
 import random
+from statsmodels import robust
 from utils.utils import parse_args
 from utils.log import get_logger, init_logger
 from utils import constants
@@ -44,8 +45,8 @@ def extract_signal_from_pod5(pod5_path) -> np.array:
                 [
                     str(read_record.read_id),
                     read_record.signal.astype(np.int16),
-                    np.int16(read_record.calibration.offset),
-                    np.float16(read_record.calibration.scale),
+                    # np.int16(read_record.calibration.offset),
+                    # np.float16(read_record.calibration.scale),
                 ]
             )
             # 0:read_id,1:signal,2:shift,3:scale
@@ -100,8 +101,11 @@ def extract_move_from_bam(bam_path) -> np.array:
                     np.int16(mv_tag[0]),
                     np.array(mv_tag[1:], dtype=np.int16),
                     np.int16(ts_tag),
-                    np.float16(sm_tag),
-                    np.float16(sd_tag),
+                    read.reference_name,
+                    np.int64(read.reference_start),
+                    "-" if read.is_reverse else "+",
+                    # np.float16(sm_tag),
+                    # np.float16(sd_tag),
                 ]
             )
     except ValueError:
@@ -119,8 +123,11 @@ def extract_move_from_bam(bam_path) -> np.array:
                     np.int16(mv_tag[0]),
                     np.array(mv_tag[1:], dtype=np.int16),
                     np.int16(ts_tag),
-                    np.float16(sm_tag),
-                    np.float16(sd_tag),
+                    read.reference_name,
+                    np.int64(read.reference_start),
+                    "-" if read.is_reverse else "+",
+                    # np.float16(sm_tag),
+                    # np.float16(sd_tag),
                 ]
             )
             # 0:read_id,1:sequence,2:stride,3:mv_table,4:num_trimmed,5:to_norm_shift,6:to_norm_scale
@@ -142,14 +149,17 @@ def read_from_pod5_bam(pod5_path, bam_path, read_id=None) -> np.array:
                                 [
                                     signal[j][constants.POD5_READ_ID],
                                     signal[j][constants.POD5_SIGNAL],
-                                    signal[j][constants.POD5_SHIFT],
-                                    signal[j][constants.POD5_SCALE],
+                                    # signal[j][constants.POD5_SHIFT],
+                                    # signal[j][constants.POD5_SCALE],
                                     seq_move[i][constants.BAM_SEQ],
                                     seq_move[i][constants.BAM_STRIDE],
                                     seq_move[i][constants.BAM_MV_TABLE],
                                     seq_move[i][constants.BAM_NUM_TRIMMED],
                                     seq_move[i][constants.BAM_TO_NORM_SHIFT],
                                     seq_move[i][constants.BAM_TO_NORM_SCALE],
+                                    seq_move[i][constants.BAM_REF_NAME],
+                                    seq_move[i][constants.BAM_REF_START],
+                                    seq_move[i][constants.BAM_REF_STRAND],
                                 ]
                             )
 
@@ -162,14 +172,17 @@ def read_from_pod5_bam(pod5_path, bam_path, read_id=None) -> np.array:
                             [
                                 signal[j][constants.POD5_READ_ID],
                                 signal[j][constants.POD5_SIGNAL],
-                                signal[j][constants.POD5_SHIFT],
-                                signal[j][constants.POD5_SCALE],
+                                # signal[j][constants.POD5_SHIFT],
+                                # signal[j][constants.POD5_SCALE],
                                 seq_move[i][constants.BAM_SEQ],
                                 seq_move[i][constants.BAM_STRIDE],
                                 seq_move[i][constants.BAM_MV_TABLE],
                                 seq_move[i][constants.BAM_NUM_TRIMMED],
                                 seq_move[i][constants.BAM_TO_NORM_SHIFT],
                                 seq_move[i][constants.BAM_TO_NORM_SCALE],
+                                seq_move[i][constants.BAM_REF_NAME],
+                                seq_move[i][constants.BAM_REF_START],
+                                seq_move[i][constants.BAM_REF_STRAND],
                             ]
                         )
                 # 0:read_id,1:signal,2:to_pA_shift,3:to_pA_scale,4:sequence,5:stride,6:mv_table,7:num_trimmed,8:to_norm_shift,9:to_norm_scale
@@ -333,7 +346,7 @@ def _get_neighbord_feature(sequence, feature, base_num) -> list:
 
 
 # 0:read_id,1:signal,2:to_pA_shift,3:to_pA_scale,4:sequence,5:stride,6:mv_table,7:num_trimmed,8:to_norm_shift,9:to_norm_scale
-def norm_signal_read_id(signal) -> np.array:
+# def norm_signal_read_id(signal) -> np.array:
     shift_scale_norm = []
     # signal_norm=[]
     if signal[constants.READ_TO_PA_SCALE] == 0:
@@ -359,6 +372,27 @@ def norm_signal_read_id(signal) -> np.array:
         ) / shift_scale_norm[1]
 
     return signal_norm
+
+
+def scale_signal(signals) -> np.array:
+    num_trimmed = signals[constants.READ_NUM_TRIMMED]
+    signal_norm = (
+        signals[constants.READ_SIGNAL][num_trimmed:].astype(np.float64) - signals[constants.READ_TO_NORM_SHIFT]
+    ) / signals[constants.READ_TO_NORM_SCALE]
+    return signal_norm
+
+
+def _normalize_signals(signals, normalize_method="mad"):
+    # num_trimmed = signals[constants.READ_NUM_TRIMMED]
+    # sig = signals[constants.READ_SIGNAL][num_trimmed:].astype(np.float64)
+    if normalize_method == "zscore":
+        sshift, sscale = np.mean(signals), np.std(signals)
+    elif normalize_method == "mad":
+        sshift, sscale = np.median(signals), robust.mad(signals)
+    else:
+        raise ValueError("")
+    norm_signals = (signals - sshift) / sscale
+    return np.around(norm_signals, decimals=6)
 
 
 def caculate_batch_feature_for_each_base(read_q, feature_q, base_num=0, write_batch=10):
@@ -397,7 +431,8 @@ def caculate_batch_feature_for_each_base(read_q, feature_q, base_num=0, write_ba
             stride = read_one[constants.READ_STRIDE]
             movetable = np.array(read_one[constants.READ_MV_TABLE])
             # num_trimmed = read[read_id]['num_trimmed']
-            trimed_signals = norm_signal_read_id(read_one)  # 筛掉背景信号,norm
+            trimed_signals = scale_signal(read_one)
+            trimed_signals = _normalize_signals(trimed_signals)  # 筛掉背景信号,norm
             if trimed_signals.size == 0:
                 logger.critical(
                     "norm has error, raw data is {}".format(read_one))
@@ -412,7 +447,7 @@ def caculate_batch_feature_for_each_base(read_q, feature_q, base_num=0, write_ba
                 if signal.size == 0:
                     logger.critical(
                         "signal is empty, it's crazy, read id is {} and base index is".format(
-                            read_one[0], move_idx
+                            read_one[constants.READ_ID], move_idx
                         )
                     )
                     continue
@@ -425,7 +460,7 @@ def caculate_batch_feature_for_each_base(read_q, feature_q, base_num=0, write_ba
                     if np.amax(signal) < mean:
                         logger.critical(
                             "ValueERROR: mean greater than max for read_id:{}".format(
-                                read_one[0]
+                                read_one[constants.READ_ID]
                             )
                         )
                 except Exception as e:
@@ -435,7 +470,7 @@ def caculate_batch_feature_for_each_base(read_q, feature_q, base_num=0, write_ba
 
                 feature.append(
                     [
-                        read_one[0],
+                        read_one[constants.READ_ID],
                         signal,
                         np.float16(std),
                         np.float16(mean),
@@ -450,7 +485,7 @@ def caculate_batch_feature_for_each_base(read_q, feature_q, base_num=0, write_ba
                     sequence, feature, base_num))
                 logger.info(
                     "extract neigbor features for read_id:{}".format(
-                        read_one[0])
+                        read_one[constants.READ_ID])
                 )
                 if len(nfeature) == write_batch:
                     # lock.acquire()

@@ -11,19 +11,18 @@ here = os.path.abspath(os.path.dirname(__file__))
 
 def read(*parts):
     # intentionally *not* adding an encoding option to open
-    return codecs.open(os.path.join(here, *parts), 'r').read()
+    return codecs.open(os.path.join(here, *parts), "r").read()
 
 
 def find_version(*file_paths):
     version_file = read(*file_paths)
-    version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]",
-                              version_file, re.M)
+    version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]", version_file, re.M)
     if version_match:
         return version_match.group(1)
     raise RuntimeError("Unable to find version string.")
 
 
-__version__ = find_version('deepsignal2', '__init__.py')
+__version__ = find_version("deepsignal2", "__init__.py")
 
 
 # class PyTest(TestCommand):
@@ -38,22 +37,24 @@ __version__ = find_version('deepsignal2', '__init__.py')
 #         sys.exit(errno)
 
 
-long_description = read('README.rst')
+long_description = read("README.rst")
 
 
-with open('requirements.txt', 'r') as rf:
+with open("requirements.txt", "r") as rf:
     required = rf.read().splitlines()
 
 
 setup(
-    name='deepsignal2',
-    packages=['deepsignal2'],
-    keywords=['methylation', 'nanopore', 'neural network'],
+    name="deepsignal2",
+    packages=["deepsignal2"],
+    keywords=["methylation", "nanopore", "neural network"],
     version=__version__,
-    url='https://github.com/PengNi/deepsignal2',
-    download_url='https://github.com/PengNi/deepsignal2/archive/{}.tar.gz'.format(__version__),
-    license='GNU General Public License v3 (GPLv3)',
-    author='Peng Ni',
+    url="https://github.com/PengNi/deepsignal2",
+    download_url="https://github.com/PengNi/deepsignal2/archive/{}.tar.gz".format(
+        __version__
+    ),
+    license="GNU General Public License v3 (GPLv3)",
+    author="Peng Ni",
     # tests_require=['pytest'],
     # install_requires=['numpy>=1.15.3',
     #                   'h5py>=2.8.0',
@@ -63,27 +64,27 @@ setup(
     #                   ],
     install_requires=required,
     # cmdclass={'test': PyTest},
-    author_email='543943952@qq.com',
-    description='A deep-learning method for detecting DNA methylation state '
-                'from Oxford Nanopore sequencing reads',
+    author_email="543943952@qq.com",
+    description="A deep-learning method for detecting DNA methylation state "
+    "from Oxford Nanopore sequencing reads",
     long_description=long_description,
     entry_points={
-        'console_scripts': [
-            'deepsignal2=deepsignal2.deepsignal2:main',
-            ],
-        },
-    platforms='any',
+        "console_scripts": [
+            "deepsignal2=deepsignal2.deepsignal2:main",
+        ],
+    },
+    platforms="any",
     # test_suite='test',
     zip_safe=False,
     include_package_data=True,
     # package_data={'deepsignal': ['utils/*']},
     classifiers=[
-        'Programming Language :: Python :: 3',
-        'Development Status :: 4 - Beta',
-        'Natural Language :: English',
-        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
-        'Operating System :: OS Independent',
-        ],
+        "Programming Language :: Python :: 3",
+        "Development Status :: 4 - Beta",
+        "Natural Language :: English",
+        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+        "Operating System :: OS Independent",
+    ],
     # extras_require={
     #     'testing': ['pytest'],
     #   },

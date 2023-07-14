@@ -1,3 +1,14 @@
 {
-    "python.analysis.typeCheckingMode": "basic"
+    "editor.formatOnSave": true,
+    "python.formatting.provider": "none",
+    "python.formatting.autopep8Args": [
+        "--aggressive",
+        "--max-line-length=120",
+        "--ignore=E402",
+        "--exclude=venv",
+        "--ignore-local-config"
+    ],
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.autopep8"
+    },
 }
