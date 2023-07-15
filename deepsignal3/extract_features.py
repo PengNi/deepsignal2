@@ -53,7 +53,7 @@ def extract_signal_from_pod5(pod5_path) -> np.array:
     return np.array(signals, dtype=object)  # np.array is small than list
 
 
-def get_read_ids(bam_idx, pod5_fh, num_reads):
+# def get_read_ids(bam_idx, pod5_fh, num_reads):
     """Get overlapping read ids from bam index and pod5 file
 
     Args:
@@ -242,26 +242,37 @@ def get_motif_seqs(motifs, is_dna=True):
     return motif_seqs
 
 
-def expand(feature, index, nbase, nsig, num, fill_num=1):
+def expand(feature, index, nbase, nsig, nsig_num, num, fill_num=1, flag=1):
     # nbase.append(np.tile(np.array(feature[index][5],dtype=str),num*fill_num))
-    for i in range(fill_num):
-        t = np.tile(np.array(feature[index][5], dtype=str), num)
-        nbase.append(t)
-    # nstd.append(np.tile(feature[index][2],num*fill_num))
-    # nmean.append(np.tile(feature[index][3],num*fill_num))
-    try:
-        # nsig.append(np.tile(np.random.choice(feature[index][1],size=num,replace=False),fill_num))
+    if flag == 1:  # 不启用扩增
         for i in range(fill_num):
-            t = np.random.choice(feature[index][1], size=num, replace=False)
+            t = np.array(feature[index][constants.FEATURE_SEQ], dtype=str)
+            nbase.append(t)
+        for i in range(fill_num):
+            t = feature[index][constants.FEATURE_SIG]
             nsig.append(t)
-        # np.array取随机不能用random包，要用numpy自带的random
-    except Exception as e:
-        logger.critical(feature[index][1])
-    # return nbase,nsig
+        for i in range(fill_num):
+            t = np.array(num, dtype=np.int16)
+            nsig_num.append(t)
+    else:
+        for i in range(fill_num):
+            t = np.tile(np.array(feature[index][constants.FEATURE_SEQ], dtype=str), num)
+            nbase.append(t)
+        # nstd.append(np.tile(feature[index][2],num*fill_num))
+        # nmean.append(np.tile(feature[index][3],num*fill_num))
+        try:
+            # nsig.append(np.tile(np.random.choice(feature[index][1],size=num,replace=False),fill_num))
+            for i in range(fill_num):
+                t = np.random.choice(feature[index][constants.FEATURE_SIG], size=num, replace=False)
+                nsig.append(t)
+            # np.array取随机不能用random包，要用numpy自带的random
+        except Exception as e:
+            logger.critical(feature[index][constants.FEATURE_ID])
+        # return nbase,nsig
 
 
 # 0:read_id,1:signal,2:std,3:mean,4:num,5:base
-def _get_neighbord_feature(sequence, feature, base_num) -> list:
+def _get_neighbord_feature(sequence, feature, base_num, control=1) -> list:
     # 数据预处理主要速度瓶颈，同样的reads数，不运行这个函数大概快了十倍，从二十多分钟减到两分钟
     motif = "CG"
     # max_sites=15
@@ -276,12 +287,14 @@ def _get_neighbord_feature(sequence, feature, base_num) -> list:
 
     nfeature = []
     windows_size = (base_num - 1) // 2
-    signal_sample = 5
+    if control != 1:
+        signal_sample = 5
     for i in range(len(feature)):
         nbase = []
         # nstd=[]
         # nmean=[]
         nsig = []
+        nsig_num = []
         if i not in tsite_locs:
             continue
         # 更改扩增逻辑，增添采样函数
@@ -291,13 +304,19 @@ def _get_neighbord_feature(sequence, feature, base_num) -> list:
 
         if i < windows_size:
             flag = windows_size - i
-            expand(feature, i, nbase, nsig, signal_sample, windows_size - i)
+            if control == 1:
+                signal_sample = feature[i][constants.FEATURE_BASE_TO_SIG_NUM]
+            expand(feature, i, nbase, nsig, nsig_num, signal_sample, windows_size - i)
             if i != 0:
                 for k in range(i):  # 左闭右开
-                    expand(feature, k, nbase, nsig, signal_sample)
+                    if control == 1:
+                        signal_sample = feature[k][constants.FEATURE_BASE_TO_SIG_NUM]
+                    expand(feature, k, nbase, nsig, nsig_num, signal_sample)
                     flag += 1
             for k in range(i, i + windows_size + 1):
-                expand(feature, k, nbase, nsig, signal_sample)
+                if control == 1:
+                    signal_sample = feature[k][constants.FEATURE_BASE_TO_SIG_NUM]
+                expand(feature, k, nbase, nsig, nsig_num, signal_sample)
                 flag += 1
             logger.debug(
                 "focus base on the far left of read and expand number is {}".format(
@@ -307,18 +326,25 @@ def _get_neighbord_feature(sequence, feature, base_num) -> list:
         elif (len(feature) - 1) - i < windows_size:
             flag = 0
             for k in range(i - windows_size, i + 1):
+                if control == 1:
+                    signal_sample = feature[k][constants.FEATURE_BASE_TO_SIG_NUM]
                 flag += 1
-                expand(feature, k, nbase, nsig, signal_sample)
+                expand(feature, k, nbase, nsig, nsig_num, signal_sample)
             if i != len(feature) - 1:
                 for k in range(i + 1, len(feature)):
+                    if control == 1:
+                        signal_sample = feature[k][constants.FEATURE_BASE_TO_SIG_NUM]
                     flag += 1
-                    expand(feature, k, nbase, nsig, signal_sample)
+                    expand(feature, k, nbase, nsig, nsig_num, signal_sample)
+            if control == 1:
+                signal_sample = feature[i][constants.FEATURE_BASE_TO_SIG_NUM]
             flag += windows_size - ((len(feature) - 1) - i)
             expand(
                 feature,
                 i,
                 nbase,
                 nsig,
+                nsig_num,
                 signal_sample,
                 windows_size - ((len(feature) - 1) - i),
             )
@@ -330,15 +356,20 @@ def _get_neighbord_feature(sequence, feature, base_num) -> list:
         else:
             flag = 0
             for k in range(i - windows_size, i):
-                expand(feature, k, nbase, nsig, signal_sample)
+                if control == 1:
+                    signal_sample = feature[k][constants.FEATURE_BASE_TO_SIG_NUM]
+                expand(feature, k, nbase, nsig, nsig_num, signal_sample)
                 flag += 1
             for k in range(i, i + windows_size + 1):
-                expand(feature, k, nbase, nsig, signal_sample)
+                if control == 1:
+                    signal_sample = feature[k][constants.FEATURE_BASE_TO_SIG_NUM]
+                expand(feature, k, nbase, nsig, nsig_num, signal_sample)
                 flag += 1
             if flag != base_num:
                 logger.error("focus base expand number is {}".format(flag))
         # feature[read_id][i].update({'nbase':nbase,'nsig':nsig,'nstd':nstd,'nmean':nmean})
-        nfeature.append([feature[i][0], nbase, nsig])
+        nfeature.append([feature[i][constants.FEATURE_ID], nsig, nbase, nsig_num, feature[i][constants.FEATURE_REF_NAME],
+                         feature[i][constants.FEATURE_REF_START], feature[i][constants.FEATURE_REF_STRAND]],)
 
         # 0:read_id,1:nbase,2:nsig,3:nstd,4:nmean
         # logger.debug('feature id: {}, feature:{}'.format(str(feature[0]),(str(nbase),str(nsig),str(nstd),str(nmean))))
@@ -376,9 +407,14 @@ def _get_neighbord_feature(sequence, feature, base_num) -> list:
 
 def scale_signal(signals) -> np.array:
     num_trimmed = signals[constants.READ_NUM_TRIMMED]
-    signal_norm = (
-        signals[constants.READ_SIGNAL][num_trimmed:].astype(np.float64) - signals[constants.READ_TO_NORM_SHIFT]
-    ) / signals[constants.READ_TO_NORM_SCALE]
+    if num_trimmed >= 0:
+        signal_norm = (
+            signals[constants.READ_SIGNAL][num_trimmed:].astype(np.float64) - signals[constants.READ_TO_NORM_SHIFT]
+        ) / signals[constants.READ_TO_NORM_SCALE]
+    else:
+        signal_norm = (
+            signals[constants.READ_SIGNAL][:num_trimmed].astype(np.float64) - signals[constants.READ_TO_NORM_SHIFT]
+        ) / signals[constants.READ_TO_NORM_SCALE]
     return signal_norm
 
 
@@ -472,10 +508,13 @@ def caculate_batch_feature_for_each_base(read_q, feature_q, base_num=0, write_ba
                     [
                         read_one[constants.READ_ID],
                         signal,
-                        np.float16(std),
-                        np.float16(mean),
-                        np.int16(num * stride),
+                        # np.float16(std),
+                        # np.float16(mean),
                         sequence[move_idx],
+                        np.int16(num * stride),
+                        read_one[constants.READ_REF_NAME],
+                        read_one[constants.READ_REF_START],
+                        read_one[constants.READ_REF_STRAND],
                     ]
                 )
                 # 0:read_id,1:signal,2:std,3:mean,4:num,5:base
@@ -581,13 +620,15 @@ def write_feature(read_number, file, feature_q):
                     for feature in read:
                         # 0:read_id,1:nbase,2:nsig,3:nstd,4:nmean
                         # #f.write(read_id+'\t')
-                        read_id = feature[0]
-                        seq = ";".join([",".join([y for y in x])
-                                       for x in feature[1]])
+                        read_id = feature[constants.FEATURE_ID]
+                        seq = ";".join([str(x) for x in feature[constants.FEATURE_SEQ]])
                         signal = ";".join(
-                            [",".join([str(y) for y in x]) for x in feature[2]]
+                            [",".join([str(y) for y in x]) for x in feature[constants.FEATURE_SIG]]
                         )
-                        one_features_str = "\t".join([read_id, seq, signal])
+                        sig_num = ";".join([str(x) for x in feature[constants.FEATURE_BASE_TO_SIG_NUM]])
+
+                        one_features_str = "\t".join(
+                            [read_id, seq, signal, sig_num, feature[constants.FEATURE_REF_NAME], feature[constants.FEATURE_REF_START], feature[constants.FEATURE_REF_STRAND]])
                         f.write(one_features_str + "\n")
                         # np.savetxt(f,np.array("\t".join([read_id,seq,signal])))
                         # dataset.append(feature)
