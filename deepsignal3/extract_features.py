@@ -75,8 +75,7 @@ def get_read_ids(bam_index, pod5_index):
     both_read_ids = list(pod5_read_ids.intersection(bam_read_ids))
     num_both_read_ids = len(both_read_ids)
     logger.info(
-        f"Found {num_bam_reads} BAM records, {num_pod5_reads} "
-        f"POD5 reads, and {num_both_read_ids} in common"
+        "Found {} BAM records, {} POD5 reads, and {} in common".format(num_bam_reads, num_pod5_reads, num_both_read_ids)
     )
     return both_read_ids, num_both_read_ids
 
