@@ -39,4 +39,4 @@ def parse_args():
         default=21,
         help="size of window in extract neighbor features for target base.",
     )
-    return parser.parse_args([])
+    return parser.parse_args()
