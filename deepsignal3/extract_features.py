@@ -1,3 +1,4 @@
+# coding:utf-8
 import multiprocessing as mp
 import numpy as np
 import pod5 as p5
