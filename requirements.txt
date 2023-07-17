@@ -54,7 +54,6 @@ pyarrow==11.0.0
 pycparser
 Pygments
 pyOpenSSL
-pysam==0.21.0
 PySocks
 python-dateutil
 pytz
