@@ -13,34 +13,39 @@ from multiprocessing import Pool
 import random
 from statsmodels import robust
 from utils.utils import parse_args
-from utils.log import get_logger, init_logger
+# from utils.log import get_logger, init_logger
 from utils import constants
 
 args = parse_args()
 signal.signal(signal.SIGPIPE, signal.SIG_IGN)  # 忽略SIGPIPE信号
-logger = logging.getLogger("test_logger")
+logger = logging.getLogger("processdata_logger")
 logger.setLevel(logging.DEBUG)
-test_log = logging.FileHandler(
+processdata_log = logging.FileHandler(
     args.log_file, "a", encoding="utf-8"
 )
 formatter = logging.Formatter(
     "%(asctime)s - %(filename)s - line:%(lineno)d - %(levelname)s - %(message)s -%(process)s"
 )
-test_log.setFormatter(formatter)
+processdata_log.setFormatter(formatter)
 # 加载文件到logger对象中
-logger.addHandler(test_log)
+logger.addHandler(processdata_log)
 
 
-def extract_signal_from_pod5(pod5_path) -> np.array:
+def extract_signal_from_pod5(pod5_path):
     signals = []
+    sig_index = dict()
     with p5.Reader(pod5_path) as reader:
-        for read_record in reader.reads():
+        i = 0
+        for read_record in tqdm(reader.reads(), desc="Read pod5", position=0, colour="green",
+                                unit=" read",):
             if read_record.signal is None:
                 logger.critical(
                     "Signal is None for read id {}".format(read_record.read_id)
                 )
             # signals[str(read_record.read_id)] =
             # {'signal':read_record.signal,'shift':read_record.calibration.offset,'scale':read_record.calibration.scale}#不加str会变成UUID，很奇怪
+            sig_index[str(read_record.read_id)] = i
+            i += 1
             signals.append(
                 [
                     str(read_record.read_id),
@@ -50,43 +55,41 @@ def extract_signal_from_pod5(pod5_path) -> np.array:
                 ]
             )
             # 0:read_id,1:signal,2:shift,3:scale
-    return np.array(signals, dtype=object)  # np.array is small than list
+    return np.array(signals, dtype=object), sig_index  # np.array is small than list
 
 
-# def get_read_ids(bam_idx, pod5_fh, num_reads):
+def get_read_ids(bam_index, pod5_index):
     """Get overlapping read ids from bam index and pod5 file
-
-    Args:
-        bam_idx (ReadIndexedBam): Read indexed BAM
-        pod5_fh (pod5.Reader): POD5 file handle
-        num_reads (int): Maximum number of reads, or None for no max
     """
     logger.info("Extracting read IDs from POD5")
-    pod5_read_ids = set(pod5_fh.read_ids)
+    pod5_read_ids = set(pod5_index.keys())
+    bam_read_ids = set(bam_index.keys())
     num_pod5_reads = len(pod5_read_ids)
+    num_bam_reads = len(bam_read_ids)
     # pod5 will raise when it cannot find a "selected" read id, so we make
     # sure they're all present before starting
     # todo(arand) this could be performed using the read_table instead, but
     #  it's worth checking that it's actually faster and doesn't explode
     #  memory before switching from a sweep throug the pod5 file
-    both_read_ids = list(pod5_read_ids.intersection(bam_idx.read_ids))
+    both_read_ids = list(pod5_read_ids.intersection(bam_read_ids))
     num_both_read_ids = len(both_read_ids)
     logger.info(
-        f"Found {bam_idx.num_reads} BAM records, {num_pod5_reads} "
+        f"Found {num_bam_reads} BAM records, {num_pod5_reads} "
         f"POD5 reads, and {num_both_read_ids} in common"
     )
-    if num_reads is None:
-        num_reads = num_both_read_ids
-    else:
-        num_reads = min(num_reads, num_both_read_ids)
-    return both_read_ids, num_reads
+    return both_read_ids, num_both_read_ids
 
 
-def extract_move_from_bam(bam_path) -> np.array:
+def extract_move_from_bam(bam_path):
     seq_move = []
     bamfile = pysam.AlignmentFile(bam_path, "rb", check_sq=False)
+    bam_index = dict()
     try:
-        for read in bamfile.fetch(until_eof=True):  # 暂时不使用索引，使用返回是空值
+        i = 0
+        for read in tqdm(bamfile.fetch(until_eof=True), desc="Read bam", position=1, colour="green",
+                         unit=" read",):  # 暂时不使用索引，使用返回是空值
+            bam_index[read.query_name] = i
+            i += 1
             # print(read.query_name)
             tags = dict(read.tags)
             mv_tag = tags["mv"]
@@ -101,16 +104,21 @@ def extract_move_from_bam(bam_path) -> np.array:
                     np.int16(mv_tag[0]),
                     np.array(mv_tag[1:], dtype=np.int16),
                     np.int16(ts_tag),
+                    np.float16(sm_tag),
+                    np.float16(sd_tag),
                     read.reference_name,
                     np.int64(read.reference_start),
                     "-" if read.is_reverse else "+",
-                    # np.float16(sm_tag),
-                    # np.float16(sd_tag),
+
                 ]
             )
     except ValueError:
-        print("bam don't has index")
-        for read in bamfile.fetch(until_eof=True, multiple_iterators=False):
+        logger.info("bam don't has index")
+        i = 0
+        for read in tqdm(bamfile.fetch(until_eof=True, multiple_iterators=False), desc="Read bam", position=1, colour="green",
+                         unit=" read",):
+            bam_index[read.query_name] = i
+            i += 1
             tags = dict(read.tags)
             mv_tag = tags["mv"]
             ts_tag = tags["ts"]
@@ -123,70 +131,56 @@ def extract_move_from_bam(bam_path) -> np.array:
                     np.int16(mv_tag[0]),
                     np.array(mv_tag[1:], dtype=np.int16),
                     np.int16(ts_tag),
+                    np.float16(sm_tag),
+                    np.float16(sd_tag),
                     read.reference_name,
                     np.int64(read.reference_start),
                     "-" if read.is_reverse else "+",
-                    # np.float16(sm_tag),
-                    # np.float16(sd_tag),
+
                 ]
             )
             # 0:read_id,1:sequence,2:stride,3:mv_table,4:num_trimmed,5:to_norm_shift,6:to_norm_scale
             # read[read.query_name] = {"sequence":read.query_sequence,"stride":mv_tag[0],"mv_table":np.array(mv_tag[1:]),"num_trimmed":ts_tag,"shift":sm_tag,"scale":sd_tag}
-    return np.array(seq_move, dtype=object)
+    return np.array(seq_move, dtype=object), bam_index
 
 
 def read_from_pod5_bam(pod5_path, bam_path, read_id=None) -> np.array:
     read = []
-    signal = extract_signal_from_pod5(pod5_path)
-    seq_move = extract_move_from_bam(bam_path)
-    if read_id is not None:
-        for i in range(len(seq_move)):
-            if seq_move[i][0] == read_id:
-                if seq_move[i][1] is not None:
-                    for j in range(len(signal)):
-                        if signal[j][0] == seq_move[i][0]:
-                            read.append(
-                                [
-                                    signal[j][constants.POD5_READ_ID],
-                                    signal[j][constants.POD5_SIGNAL],
-                                    # signal[j][constants.POD5_SHIFT],
-                                    # signal[j][constants.POD5_SCALE],
-                                    seq_move[i][constants.BAM_SEQ],
-                                    seq_move[i][constants.BAM_STRIDE],
-                                    seq_move[i][constants.BAM_MV_TABLE],
-                                    seq_move[i][constants.BAM_NUM_TRIMMED],
-                                    seq_move[i][constants.BAM_TO_NORM_SHIFT],
-                                    seq_move[i][constants.BAM_TO_NORM_SCALE],
-                                    seq_move[i][constants.BAM_REF_NAME],
-                                    seq_move[i][constants.BAM_REF_START],
-                                    seq_move[i][constants.BAM_REF_STRAND],
-                                ]
-                            )
+    signal, sig_index = extract_signal_from_pod5(pod5_path)
+    seq_move, bam_index = extract_move_from_bam(bam_path)
+    both_read_ids, num_both_read_ids = get_read_ids(bam_index, sig_index)
+    combine_pod5_bam_bar = tqdm(
+        total=num_both_read_ids,
+        desc="combine pod5 and bam",
+        position=2,
+        colour="green",
+        unit=" read",
+    )
+    for id in both_read_ids:
+        bam_ix = bam_index[id]
+        pod5_idx = sig_index[id]
+        combine_pod5_bam_bar.update(1)
+        if seq_move[bam_ix][constants.BAM_SEQ] is not None:
+            read.append(
+                [
+                    signal[pod5_idx][constants.POD5_READ_ID],
+                    signal[pod5_idx][constants.POD5_SIGNAL],
+                    # signal[j][constants.POD5_SHIFT],
+                    # signal[j][constants.POD5_SCALE],
+                    seq_move[bam_ix][constants.BAM_SEQ],
+                    seq_move[bam_ix][constants.BAM_STRIDE],
+                    seq_move[bam_ix][constants.BAM_MV_TABLE],
+                    seq_move[bam_ix][constants.BAM_NUM_TRIMMED],
+                    seq_move[bam_ix][constants.BAM_TO_NORM_SHIFT],
+                    seq_move[bam_ix][constants.BAM_TO_NORM_SCALE],
+                    seq_move[bam_ix][constants.BAM_REF_NAME],
+                    seq_move[bam_ix][constants.BAM_REF_START],
+                    seq_move[bam_ix][constants.BAM_REF_STRAND],
+                ]
+            )
 
-    else:
-        for i in range(len(seq_move)):
-            if seq_move[i][1] is not None:
-                for j in range(len(signal)):
-                    if signal[j][0] == seq_move[i][0]:
-                        read.append(
-                            [
-                                signal[j][constants.POD5_READ_ID],
-                                signal[j][constants.POD5_SIGNAL],
-                                # signal[j][constants.POD5_SHIFT],
-                                # signal[j][constants.POD5_SCALE],
-                                seq_move[i][constants.BAM_SEQ],
-                                seq_move[i][constants.BAM_STRIDE],
-                                seq_move[i][constants.BAM_MV_TABLE],
-                                seq_move[i][constants.BAM_NUM_TRIMMED],
-                                seq_move[i][constants.BAM_TO_NORM_SHIFT],
-                                seq_move[i][constants.BAM_TO_NORM_SCALE],
-                                seq_move[i][constants.BAM_REF_NAME],
-                                seq_move[i][constants.BAM_REF_START],
-                                seq_move[i][constants.BAM_REF_STRAND],
-                            ]
-                        )
-                # 0:read_id,1:signal,2:to_pA_shift,3:to_pA_scale,4:sequence,5:stride,6:mv_table,7:num_trimmed,8:to_norm_shift,9:to_norm_scale
-
+            # 0:read_id,1:signal,2:to_pA_shift,3:to_pA_scale,4:sequence,5:stride,6:mv_table,7:num_trimmed,8:to_norm_shift,9:to_norm_scale
+    combine_pod5_bam_bar.close()
     return np.array(read, dtype=object)
 
 
@@ -522,7 +516,7 @@ def caculate_batch_feature_for_each_base(read_q, feature_q, base_num=0, write_ba
             if base_num != 0:
                 nfeature.append(_get_neighbord_feature(
                     sequence, feature, base_num))
-                logger.info(
+                logger.debug(
                     "extract neigbor features for read_id:{}".format(
                         read_one[constants.READ_ID])
                 )
@@ -587,7 +581,7 @@ def write_feature(read_number, file, feature_q):
     write_feature_bar = tqdm(
         total=read_number,
         desc="extract feature",
-        position=0,
+        position=3,
         colour="green",
         unit=" read",
     )

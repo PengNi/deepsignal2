@@ -6,7 +6,7 @@ def parse_args():
     parser.add_argument(
         "--log-file",
         type=str,
-        default="/home/xiaoyf/methylation/deepsignal/log/process.log",
+        default="/home/xiaoyf/methylation/deepsignal/log/processdata.log",
         help="log store address.",
     )
     parser.add_argument(
@@ -24,11 +24,11 @@ def parse_args():
     parser.add_argument(
         "--bam-file",
         type=str,
-        default="/homeb/xiaoyf/data/HG002/bam/has_moves_chm13v2.bam",
+        default="/homeb/xiaoyf/data/HG002/bam/dorado/has_moves_chm13v2.bam",
         help="bam file store address.",
     )
     parser.add_argument(
-        "--nproc", type=int, default=4, help="minimum number of processes in extract features."
+        "--nproc", type=int, default=38, help="minimum number of processes in extract features."
     )
     parser.add_argument(
         "--batch-size", type=int, default=200, help="size of batch in extract features."
