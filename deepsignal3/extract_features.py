@@ -31,23 +31,37 @@ processdata_log.setFormatter(formatter)
 # 加载文件到logger对象中
 logger.addHandler(processdata_log)
 
-
-def extract_signal_from_pod5(pod5_path):
-    signals = []
+def establish_index(pod5_path, bam_path)->dict:
+    pod5_fh = p5.Reader(pod5_path)
+    bam_fh = pysam.AlignmentFile(bam_path, "rb", check_sq=False)
     sig_index = dict()
-    with p5.Reader(pod5_path) as reader:
-        i = 0
-        for read_record in tqdm(reader.reads(), desc="Read pod5", position=0, colour="green",
+    i = 0
+    for read_record in pod5_fh.reads():     
+        if read_record.signal is None:
+            sig_index[str(read_record.read_id)] = i
+            i += 1
+    bam_index = dict()
+    i = 0
+    for read in bam_fh.fetch(until_eof=True, multiple_iterators=False):
+        bam_index[read.query_name] = i
+        i += 1
+    return sig_index, bam_index
+
+
+def extract_signal_from_pod5(pod5_fh,read_ids):
+    signals = []
+    
+    for read_id in tqdm(read_ids, desc="Read pod5", position=0, colour="green",
                                 unit=" read",):
-            if read_record.signal is None:
+        
+        read_record =pod5_fh.reads(selection=read_id, preload=["samples"])
+        if read_record.signal is None:
                 logger.critical(
                     "Signal is None for read id {}".format(read_record.read_id)
                 )
-            # signals[str(read_record.read_id)] =
-            # {'signal':read_record.signal,'shift':read_record.calibration.offset,'scale':read_record.calibration.scale}#不加str会变成UUID，很奇怪
-            sig_index[str(read_record.read_id)] = i
-            i += 1
-            signals.append(
+        # signals[str(read_record.read_id)] =
+        # {'signal':read_record.signal,'shift':read_record.calibration.offset,'scale':read_record.calibration.scale}#不加str会变成UUID，很奇怪
+        signals.append(
                 [
                     str(read_record.read_id),
                     read_record.signal.astype(np.int16),
@@ -56,10 +70,11 @@ def extract_signal_from_pod5(pod5_path):
                 ]
             )
             # 0:read_id,1:signal,2:shift,3:scale
-    return np.array(signals, dtype=object), sig_index  # np.array is small than list
+            
+    return np.array(signals, dtype=object)  # np.array is small than list
 
 
-def get_read_ids(bam_index, pod5_index):
+def get_read_ids(bam_index, pod5_index)->list:
     """Get overlapping read ids from bam index and pod5 file
     """
     logger.info("Extracting read IDs from POD5")
@@ -77,78 +92,43 @@ def get_read_ids(bam_index, pod5_index):
     logger.info(
         "Found {} BAM records, {} POD5 reads, and {} in common".format(num_bam_reads, num_pod5_reads, num_both_read_ids)
     )
-    return both_read_ids, num_both_read_ids
+    return both_read_ids
 
 
-def extract_move_from_bam(bam_path):
+def extract_move_from_bam(bam_fh,read_ids):
     seq_move = []
-    bamfile = pysam.AlignmentFile(bam_path, "rb", check_sq=False)
-    bam_index = dict()
-    try:
-        i = 0
-        for read in tqdm(bamfile.fetch(until_eof=True), desc="Read bam", position=1, colour="green",
-                         unit=" read",):  # 暂时不使用索引，使用返回是空值
-            bam_index[read.query_name] = i
-            i += 1
-            # print(read.query_name)
-            tags = dict(read.tags)
-            mv_tag = tags["mv"]
-            ts_tag = tags["ts"]
-            sm_tag = tags["sm"]
-            sd_tag = tags["sd"]
-            # read.update({read.query_name:{"sequence":read.query_sequence,"stride":mv_tag[0],"mv_table":np.array(mv_tag[1:]),"num_trimmed":ts_tag,"shift":sm_tag,"scale":sd_tag}})
-            seq_move.append(
-                [
-                    read.query_name,
-                    read.query_sequence,
-                    np.int16(mv_tag[0]),
-                    np.array(mv_tag[1:], dtype=np.int16),
-                    np.int16(ts_tag),
-                    np.float16(sm_tag),
-                    np.float16(sd_tag),
-                    read.reference_name,
-                    np.int64(read.reference_start),
-                    "-" if read.is_reverse else "+",
-
-                ]
-            )
-    except ValueError:
-        logger.info("bam don't has index")
-        i = 0
-        for read in tqdm(bamfile.fetch(until_eof=True, multiple_iterators=False), desc="Read bam", position=1, colour="green",
+    
+    for read_id in tqdm(read_ids, desc="Read bam", position=1, colour="green",
                          unit=" read",):
-            bam_index[read.query_name] = i
-            i += 1
-            tags = dict(read.tags)
-            mv_tag = tags["mv"]
-            ts_tag = tags["ts"]
-            sm_tag = tags["sm"]
-            sd_tag = tags["sd"]
-            seq_move.append(
-                [
-                    read.query_name,
-                    read.query_sequence,
-                    np.int16(mv_tag[0]),
-                    np.array(mv_tag[1:], dtype=np.int16),
-                    np.int16(ts_tag),
-                    np.float16(sm_tag),
-                    np.float16(sd_tag),
-                    read.reference_name,
-                    np.int64(read.reference_start),
-                    "-" if read.is_reverse else "+",
+        read=
+        
+        tags = dict(read.tags)
+        mv_tag = tags["mv"]
+        ts_tag = tags["ts"]
+        sm_tag = tags["sm"]
+        sd_tag = tags["sd"]
+        seq_move.append(
+            [
+                read.query_name,
+                read.query_sequence,
+                np.int16(mv_tag[0]),
+                np.array(mv_tag[1:], dtype=np.int16),
+                np.int16(ts_tag),
+                np.float16(sm_tag),
+                np.float16(sd_tag),
+                read.reference_name,
+                np.int64(read.reference_start),
+                "-" if read.is_reverse else "+",
 
-                ]
-            )
+            ]
+        )
             # 0:read_id,1:sequence,2:stride,3:mv_table,4:num_trimmed,5:to_norm_shift,6:to_norm_scale
             # read[read.query_name] = {"sequence":read.query_sequence,"stride":mv_tag[0],"mv_table":np.array(mv_tag[1:]),"num_trimmed":ts_tag,"shift":sm_tag,"scale":sd_tag}
     return np.array(seq_move, dtype=object), bam_index
 
-
-def read_from_pod5_bam(pod5_path, bam_path, read_id=None) -> np.array:
+def read_from_pod5_bam(both_read_ids,pod5_index,bam_index,pod5_fh, bam_fh, read_id=None) -> np.array:
     read = []
-    signal, sig_index = extract_signal_from_pod5(pod5_path)
-    seq_move, bam_index = extract_move_from_bam(bam_path)
-    both_read_ids, num_both_read_ids = get_read_ids(bam_index, sig_index)
+    num_both_read_ids=len(both_read_ids)
     combine_pod5_bam_bar = tqdm(
         total=num_both_read_ids,
         desc="combine pod5 and bam",
@@ -158,7 +138,7 @@ def read_from_pod5_bam(pod5_path, bam_path, read_id=None) -> np.array:
     )
     for id in both_read_ids:
         bam_ix = bam_index[id]
-        pod5_idx = sig_index[id]
+        pod5_idx = pod5_index[id]
         combine_pod5_bam_bar.update(1)
         if seq_move[bam_ix][constants.BAM_SEQ] is not None:
             read.append(
@@ -183,6 +163,32 @@ def read_from_pod5_bam(pod5_path, bam_path, read_id=None) -> np.array:
     combine_pod5_bam_bar.close()
     return np.array(read, dtype=object)
 
+#维护三个set，一个已推送read_id set，已读pod5和已读bam未推送read_id set，不断将未推送的取交集填充进已推送的set
+def _prepare_read(both_read_id,pod5_index,bam_index,read_q,pod5_path, bam_path, batch_size=1000):
+    pod5_fh=p5.Reader(pod5_path)
+    bam_fh= pysam.AlignmentFile(bam_path, "rb", check_sq=False)
+    read_from_pod5_bam(both_read_id,pod5_index,bam_index,pod5_fh, bam_fh)
+    i = 0
+    # j=0
+    read_batch = []
+    for read_one in read:
+        read_batch.append(read_one)
+        i = i + 1
+        # j=j+1
+        # if j==40:
+        #    break
+        if i == batch_size:
+            i = 0
+            if read_q.full():
+                logger.critical("read_q is full")
+            read_q.put(read_batch)
+            read_batch = []
+    if len(read) % batch_size != 0:
+        read_q.put(np.array(read_batch, dtype=object))
+    # print('total batch number is {}'.format((len(read)-1)//batch_size+1))
+    logger.info("total batch number is {}".format(
+        (len(read) - 1) // batch_size + 1))
+    # return len(read)
 
 def get_refloc_of_methysite_in_motif(seqstr, motifset, methyloc_in_motif=0) -> list:
     """
@@ -549,30 +555,6 @@ def caculate_batch_feature_for_each_base(read_q, feature_q, base_num=0, write_ba
     # pbar.close()
 
 
-def _prepare_read(read_q, read, batch_size=1000):
-    i = 0
-    # j=0
-    read_batch = []
-    for read_one in read:
-        read_batch.append(read_one)
-        i = i + 1
-        # j=j+1
-        # if j==40:
-        #    break
-        if i == batch_size:
-            i = 0
-            if read_q.full():
-                logger.critical("read_q is full")
-            read_q.put(read_batch)
-            read_batch = []
-    if len(read) % batch_size != 0:
-        read_q.put(np.array(read_batch, dtype=object))
-    # print('total batch number is {}'.format((len(read)-1)//batch_size+1))
-    logger.info("total batch number is {}".format(
-        (len(read) - 1) // batch_size + 1))
-    # return len(read)
-
-
 def write_feature(read_number, file, feature_q):
     # print("write_process-{} starts".format(os.getpid()))
     logger.info("write_process-{} starts".format(os.getpid()))
@@ -648,16 +630,17 @@ def write_feature(read_number, file, feature_q):
         write_feature_bar.close()
 
 
-def extract_feature(read, output_file, nproc=4, batch_size=20, window_size=21):
-    start = time.time()
+def extract_feature(pod5_path,bam_path, output_file, nproc=4, batch_size=20, window_size=21):
+    pod5_index,bam_index=establish_index(pod5_path, bam_path)
+    both_read_ids = get_read_ids(pod5_index, bam_index)
     feature_q = Queue()
     read_q = Queue()
     # bar=Queue()
     # bar.put(0)
     # caculate_batch_feature_pbar = Manager().Queue()
     # write_pbar = Manager().Queue()
-    _prepare_read(read_q, read, batch_size)
-    read_number = len(read)
+    _prepare_read(both_read_ids,pod5_index,bam_index,read_q, pod5_path, bam_path,batch_size)
+    read_number = len(read_q)
     feature_procs = []
     read_q.put("kill")
     # manager = mp.Manager()
@@ -727,12 +710,10 @@ def extract_feature(read, output_file, nproc=4, batch_size=20, window_size=21):
     # extract_feature_bar.join()
     # write_feature_bar.join()
     # print("[main]extract_features costs %.1f seconds.." %(time.time() - start))
-    logger.info("[main]extract_features costs %.1f seconds.." %
-                (time.time() - start))
 
 
 if __name__ == "__main__":
-
+    start = time.time()
     batch_size = args.batch_size
     window_size = args.window_size
     output_file = args.output_file
@@ -740,6 +721,7 @@ if __name__ == "__main__":
     pod5_path = args.pod5_file
     bam_path = args.bam_file
     nproc = max(mp.cpu_count() - 2, args.nproc)
-
-    read = read_from_pod5_bam(pod5_path, bam_path)
-    extract_feature(read, output_file, nproc, batch_size, window_size)
+    
+    extract_feature(pod5_path,bam_path, output_file, nproc, batch_size, window_size)
+    logger.info("[main]extract_features costs %.1f seconds.." %
+                (time.time() - start))

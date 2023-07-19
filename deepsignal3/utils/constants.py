@@ -33,6 +33,10 @@ iupac_alphabets_rna = {
     "N": ["A", "C", "G", "U"],
 }
 
+
+base2code_dna = {"A": 0, "C": 1, "G": 2, "T": 3, "N": 4}
+code2base_dna = {0: "A", 1: "C", 2: "G", 3: "T", 4: "N"}
+
 POD5_READ_ID = 0
 POD5_SIGNAL = 1
 # POD5_SHIFT = 2

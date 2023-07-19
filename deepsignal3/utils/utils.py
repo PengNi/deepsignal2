@@ -39,4 +39,38 @@ def parse_args():
         default=21,
         help="size of window in extract neighbor features for target base.",
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "--conv-in", type=int, default=4, help="Input sequence features"
+    )
+    parser.add_argument("--batch_size", type=int, default=512, required=False)
+    parser.add_argument("--step_interval", type=int, default=100, required=False)
+    parser.add_argument("--lr", type=float, default=0.001, required=False)
+    parser.add_argument(
+        "--train-file",
+        type=str,
+        help="feature file used in trainning",
+        default="/homeb/xiaoyf/data/HG002/R9.4/samples_CG.hc_poses.r30m.tsv",
+    )
+    parser.add_argument(
+        "--model-dir", type=str, default="/home/xiaoyf/methylation/deepsignal/log/"
+    )
+    parser.add_argument(
+        "--target-chr", type=str, default="chr11"
+    )
+    parser.add_argument(
+        "--max-epoch-num",
+        action="store",
+        default=10,
+        type=int,
+        required=False,
+        help="max epoch num, default 10",
+    )
+    parser.add_argument(
+        "--min-epoch-num",
+        action="store",
+        default=5,
+        type=int,
+        required=False,
+        help="min epoch num, default 5",
+    )
+    return parser.parse_args()  # 在jupyter里面运行时()要加[]，在命令行运行时要去掉[]，不然都会报错
