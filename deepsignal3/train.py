@@ -27,6 +27,7 @@ formatter = logging.Formatter(
 processdata_log.setFormatter(formatter)
 # 加载文件到logger对象中
 logger.addHandler(processdata_log)
+use_cuda = torch.cuda.is_available()
 
 
 if __name__ == "__main__":
@@ -47,7 +48,7 @@ if __name__ == "__main__":
     valid_loader = torch.utils.data.DataLoader(
         dataset=train_dataset, batch_size=args.batch_size, sampler=val_sampler
     )
-    model = CapsNet()
+    model = torch.nn.DataParallelModel(CapsNet())
     criterion = CapsuleLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = StepLR(optimizer, step_size=2, gamma=0.1)
@@ -73,7 +74,11 @@ if __name__ == "__main__":
         start = time.time()
         for i, sfeatures in tqdm(enumerate(train_loader)):
             (seq, sig, labels) = sfeatures
-            outputs = model(seq, sig)
+            if use_cuda:
+                seq = seq.cuda()
+                sig = sig.cuda()
+                labels = labels.cuda()
+            outputs, logits = model(seq, sig)
             loss = criterion(outputs, labels)
             # print(loss)
             logger.debug(loss.detach().item())
@@ -94,10 +99,17 @@ if __name__ == "__main__":
                             vsig,
                             vlabels,
                         ) = vsfeatures
-                        voutputs = model(vseq, vsig)
+                        if use_cuda:
+                            vseq = vseq.cuda()
+                            vsig = vsig.cuda()
+                            vlabels = vlabels.cuda()
+                        voutputs, vlogits = model(vseq, vsig)
                         vloss = criterion(voutputs, vlabels)
 
-                        _, vpredicted = torch.max(voutputs.data, 1)
+                        _, vpredicted = torch.max(vlogits.data, 1)
+                        if use_cuda:
+                            vpredicted = vpredicted.cpu()
+                            vlabels = vlabels.cpu()
                         # print(vpredicted)
                         vlosses.append(vloss.item())
                         vlabels_total += vlabels.tolist()
@@ -115,7 +127,7 @@ if __name__ == "__main__":
                             torch.save(
                                 model.state_dict(),
                                 model_dir
-                                + ".epoch{}.ckpt".format(
+                                + args.target_chr + ".epoch{}.ckpt".format(
                                     epoch
                                 ),
                             )

@@ -3,9 +3,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-
+import torch.autograd as autograd
 import warnings
 warnings.simplefilter('ignore')
+
+use_cuda = torch.cuda.is_available()
 
 
 def squash(tensor, dim=-1):
@@ -146,12 +148,30 @@ class CapsLayer(nn.Module):
 
 
 class CapsNet(nn.Module):
-    def __init__(self, vocab_size=16, embedding_size=16):
+    def __init__(self, hidden_size=256, cap_output_num=16, vocab_size=16,
+                 embedding_size=16, dropout_rate=0.5, num_layers=3):
         super(CapsNet, self).__init__()
         self.embed = nn.Embedding(vocab_size, embedding_size)
+        self.lstm = nn.LSTM(272, hidden_size, num_layers,
+                            dropout=dropout_rate, batch_first=True, bidirectional=True)
         self.primary_layer = PrimaryCapsuleLayer()
-        self.caps_layer = CapsLayer()
+        self.caps_layer = CapsLayer(out_channels=cap_output_num)
+        self.dropout1 = nn.Dropout(p=dropout_rate)
+        self.fc1 = nn.Linear(cap_output_num, hidden_size)  #
+        self.relu1 = nn.ReLU()
+        self.dropout2 = nn.Dropout(p=dropout_rate)
+        self.fc2 = nn.Linear(hidden_size, 2)
+        self.relu2 = nn.ReLU()
         self.softmax = nn.Softmax(1)
+
+    def init_hidden(self, batch_size, num_layers, hidden_size):
+        # Set initial states
+        h0 = autograd.Variable(torch.randn(num_layers * 2, batch_size, hidden_size))
+        c0 = autograd.Variable(torch.randn(num_layers * 2, batch_size, hidden_size))
+        if use_cuda:
+            h0 = h0.cuda()
+            c0 = c0.cuda()
+        return h0, c0
 
     def forward(self, seq, sig):
         seq_emb = self.embed(seq.long())
@@ -161,15 +181,23 @@ class CapsNet(nn.Module):
         # print('sig shape: {}'.format(sig.shape))
         # to(torch.float32) solve RuntimeError:expected scalar type Double but found Float
         x = torch.cat((seq_emb, sig), dim=1).to(torch.float32)
+        x = x.lstm(x)
         # seq = self.primary_layer(seq)
         # seq = self.caps_layer(seq)
         # sig = self.primary_layer(sig)
         # sig = self.caps_layer(sig)
         x = self.primary_layer(x)
         x = self.caps_layer(x)
+        # x = self.dropout1(x)
+        x = self.fc1(x)
+        x = self.relu1(x)
+        # x = self.dropout2(x)
+        x = self.fc2(x)
+        # x = self.relu2(x)
         # print(x.shape)
-        x = torch.norm(x, dim=1)
-        return x
+        x = x.squeeze(1)
+
+        return x, self.softmax(x)
 
 
 def test_for_caps_net():
@@ -183,7 +211,8 @@ def test_for_caps_net():
 class CapsuleLoss(nn.Module):
     def __init__(self):
         super(CapsuleLoss, self).__init__()
-        self.loss = nn.CrossEntropyLoss()
+        weight_rank = torch.from_numpy(np.array([1, 1.0])).float()
+        self.loss = nn.CrossEntropyLoss(weight=weight_rank)
 
     def forward(self, classes, labels):
         # classes = classes.reshape(classes.shape[0], 2)
