@@ -145,9 +145,13 @@ class CapsLayer(nn.Module):
         out_channels=20  # in_channels=105
     ):
         super(CapsLayer, self).__init__()
-        self.W = nn.Parameter(
-            torch.randn(1, num_capsules, in_caps, out_channels, in_channels)
-        )
+        
+        if use_cuda:
+            self.W = nn.Parameter(
+                torch.randn(1, num_capsules, in_caps, out_channels, in_channels).cuda())
+        else:
+            self.W = nn.Parameter(
+                torch.randn(1, num_capsules, in_caps, out_channels, in_channels))
         # print('W shape: {}'.format(self.W.shape))
 
     def forward(self, x):
@@ -173,6 +177,7 @@ class CapsNet(nn.Module):
                  primary_conv=5,
                  hidden_size=256, 
                  primary_conv_out=4,
+                 primary_kernel_size=2,
                  num_capsules=10, 
                  cap_output_num=16, 
                  vocab_size=16,
@@ -189,7 +194,9 @@ class CapsNet(nn.Module):
                             dropout=dropout_rate, batch_first=True, bidirectional=True)
         self.lstm_sig = nn.LSTM(self.sig_len, self.hlstm_size, self.num_layers,
                             dropout=dropout_rate, batch_first=True, bidirectional=True)
-        self.primary_layer = PrimaryCapsuleLayer(conv_in=constants.KMER_LEN*2,conv_out=primary_conv_out,conv_num=primary_conv)
+        self.primary_layer = PrimaryCapsuleLayer(conv_in=constants.KMER_LEN*2,
+                                                 conv_out=primary_conv_out,conv_num=primary_conv,
+                                                 kernel_size=primary_kernel_size)
         self.caps_layer = CapsLayer(num_capsules=num_capsules,in_caps=primary_conv_out*primary_conv,in_channels=2*hlstm_size,out_channels=cap_output_num)
         self.dropout1 = nn.Dropout(p=dropout_rate)
         self.fc1 = nn.Linear(cap_output_num*num_capsules, hidden_size)  #
