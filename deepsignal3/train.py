@@ -31,6 +31,7 @@ use_cuda = torch.cuda.is_available()
 
 
 if __name__ == "__main__":
+    logger.info('use gpu: {}'.format(use_cuda))
     total_start = time.time()
     train_dataset = SignalFeaData2(args.train_file, args.target_chr)
 
@@ -40,7 +41,7 @@ if __name__ == "__main__":
 
     train_sampler = sampler.SubsetRandomSampler(train_idx)
     val_sampler = sampler.SubsetRandomSampler(val_idx)
-
+    logger.info('trainning and verifying batch size is {}'.format(args.batch_size))
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset, batch_size=args.batch_size, sampler=train_sampler
     )
@@ -48,7 +49,9 @@ if __name__ == "__main__":
     valid_loader = torch.utils.data.DataLoader(
         dataset=train_dataset, batch_size=args.batch_size, sampler=val_sampler
     )
-    model = torch.nn.DataParallelModel(CapsNet())
+    model = CapsNet()#torch.nn.DataParallel(CapsNet())
+    if use_cuda:
+        model = model.cuda()
     criterion = CapsuleLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = StepLR(optimizer, step_size=2, gamma=0.1)
@@ -125,6 +128,7 @@ if __name__ == "__main__":
                         curr_best_accuracy_epoch = v_accuracy
                         if curr_best_accuracy_epoch > curr_best_accuracy - 0.0002:
                             torch.save(
+                                #model.module.state_dict(),
                                 model.state_dict(),
                                 model_dir
                                 + args.target_chr + ".epoch{}.ckpt".format(

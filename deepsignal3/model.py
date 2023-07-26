@@ -6,7 +6,7 @@ import numpy as np
 import torch.autograd as autograd
 import warnings
 warnings.simplefilter('ignore')
-
+from utils import constants
 use_cuda = torch.cuda.is_available()
 
 
@@ -25,6 +25,21 @@ class Squash(nn.Module):
         n = torch.norm(s, dim=-1, keepdim=True)
         return (1 - 1 / (torch.exp(n) + self.eps)) * (s / (n + self.eps))
 
+def swish(x):
+    """Swish activation
+
+    Swish is self-gated linear activation :math:`x sigma(x)`
+
+    For details see: https://arxiv.org/abs/1710.05941
+
+    Note:
+        Original definition has a scaling parameter for the gating value,
+        making it a generalisation of the (logistic approximation to) the GELU.
+        Evidence presented, e.g. https://arxiv.org/abs/1908.08681 that swish-1
+        performs comparable to tuning the parameter.
+
+    """
+    return x * torch.sigmoid(x)
 
 def dynamic_routing(x, iterations=3):
     # x = x.unsqueeze(-1)
@@ -79,26 +94,28 @@ class PrimaryCapsuleLayer(nn.Module):
 
     def __init__(
         self,
-        conv_in=2,
-        feature_dimension=272,  # 21 * 5,
+        conv_in=34,#2
+        conv_out=4,
+        #feature_dimension=256,#272,  # 21 * 5,
         kernel_size=2,
         conv_num=5,
-        base_num=21,
+        #sig_len=21,
     ):
         super().__init__()
 
-        self.conv_out = feature_dimension // (conv_num * base_num)
+        #self.conv_out = feature_dimension // conv_num#(conv_num * base_num)
+        self.conv_out = conv_out
         self.conv_num = conv_num
         self.primary_capsule_layer = nn.ModuleList(
             [
                 nn.Conv1d(
-                    conv_in,
-                    self.conv_out,
-                    kernel_size,
-                    dilation=conv_stride,
+                    in_channels=conv_in,#输入信号通道，词向量维度
+                    out_channels=self.conv_out,
+                    kernel_size=kernel_size,#第二个维度是由in_channels来决定的，所以实际上卷积大小为kernel_size*in_channels
+                    dilation=conv_dilation,#卷积核元素之间的间距
                     padding="same",
                 )
-                for conv_stride in range(1, conv_num + 1)
+                for conv_dilation in range(1, conv_num + 1)
             ]
         )
 
@@ -110,6 +127,7 @@ class PrimaryCapsuleLayer(nn.Module):
         #    c.reshape(self.conv_num, self.feature_dimension) for c in capsules
         # ]
         output_tensor = torch.cat(capsules, dim=1)
+        #(batch_size,self.conv_num*self.conv_out,conv_in)
         return Squash()(output_tensor)
 
 
@@ -121,7 +139,10 @@ def test_for_primary_capsule_layer():
 
 class CapsLayer(nn.Module):
     def __init__(
-        self, num_capsules=1, in_caps=10, in_channels=272, out_channels=2  # in_channels=105
+        self, num_capsules=1, 
+        in_caps=20,#10, 
+        in_channels=256,#272, 
+        out_channels=20  # in_channels=105
     ):
         super(CapsLayer, self).__init__()
         self.W = nn.Parameter(
@@ -131,7 +152,7 @@ class CapsLayer(nn.Module):
 
     def forward(self, x):
         # print('CapsLayer input shape: {}'.format(x.shape))
-        x = x[:, None, ..., None]  # x.unsqueeze(1).unsqueeze(4)
+        x = x[:, None, ..., None]  # x.unsqueeze(4).unsqueeze(1)
         # x = x.unsqueeze(-1)
         # print('W shape: {}'.format(self.W.shape))
         # print('CapsLayer input shape: {}'.format(x.shape))
@@ -148,16 +169,30 @@ class CapsLayer(nn.Module):
 
 
 class CapsNet(nn.Module):
-    def __init__(self, hidden_size=256, cap_output_num=16, vocab_size=16,
-                 embedding_size=16, dropout_rate=0.5, num_layers=3):
+    def __init__(self, 
+                 primary_conv=5,
+                 hidden_size=256, 
+                 primary_conv_out=4,
+                 num_capsules=10, 
+                 cap_output_num=16, 
+                 vocab_size=16,
+                 embedding_size=16, 
+                 dropout_rate=0.5, 
+                 num_layers=3,
+                 hlstm_size=128):
         super(CapsNet, self).__init__()
         self.embed = nn.Embedding(vocab_size, embedding_size)
-        self.lstm = nn.LSTM(272, hidden_size, num_layers,
+        self.hlstm_size=hlstm_size
+        self.num_layers=num_layers
+        self.sig_len = constants.SIG_LEN
+        self.lstm_seq = nn.LSTM(self.sig_len, self.hlstm_size, self.num_layers,
                             dropout=dropout_rate, batch_first=True, bidirectional=True)
-        self.primary_layer = PrimaryCapsuleLayer()
-        self.caps_layer = CapsLayer(out_channels=cap_output_num)
+        self.lstm_sig = nn.LSTM(self.sig_len, self.hlstm_size, self.num_layers,
+                            dropout=dropout_rate, batch_first=True, bidirectional=True)
+        self.primary_layer = PrimaryCapsuleLayer(conv_in=constants.KMER_LEN*2,conv_out=primary_conv_out,conv_num=primary_conv)
+        self.caps_layer = CapsLayer(num_capsules=num_capsules,in_caps=primary_conv_out*primary_conv,in_channels=2*hlstm_size,out_channels=cap_output_num)
         self.dropout1 = nn.Dropout(p=dropout_rate)
-        self.fc1 = nn.Linear(cap_output_num, hidden_size)  #
+        self.fc1 = nn.Linear(cap_output_num*num_capsules, hidden_size)  #
         self.relu1 = nn.ReLU()
         self.dropout2 = nn.Dropout(p=dropout_rate)
         self.fc2 = nn.Linear(hidden_size, 2)
@@ -166,28 +201,39 @@ class CapsNet(nn.Module):
 
     def init_hidden(self, batch_size, num_layers, hidden_size):
         # Set initial states
-        h0 = autograd.Variable(torch.randn(num_layers * 2, batch_size, hidden_size))
-        c0 = autograd.Variable(torch.randn(num_layers * 2, batch_size, hidden_size))
+        h0 = autograd.Variable(torch.randn(num_layers * 2, batch_size, hidden_size)).to(torch.float32)
+        c0 = autograd.Variable(torch.randn(num_layers * 2, batch_size, hidden_size)).to(torch.float32)
         if use_cuda:
             h0 = h0.cuda()
             c0 = c0.cuda()
         return h0, c0
 
     def forward(self, seq, sig):
-        seq_emb = self.embed(seq.long())
-        seq_emb = seq_emb.reshape(seq_emb.shape[0], 1, -1)
-        sig = sig.reshape(sig.shape[0], 1, -1)
-        # print('seq_emb shape: {}'.format(seq_emb.shape))
-        # print('sig shape: {}'.format(sig.shape))
+        seq_emb = self.embed(seq.long())#bacth_size, 17, 16
+        #seq_emb = seq_emb.unsqueeze(-1)#seq_emb.reshape(seq_emb.shape[0], 1, -1)
+        #sig = sig.unsqueeze(-1)#sig.reshape(sig.shape[0], 1, -1)
+        #print('seq_emb shape: {}'.format(seq_emb.shape))
+        #print('sig shape: {}'.format(sig.shape))
+        #batch_size=seq_emb.shape[0]
+        #print(batch_size)
+        seq_emb,_=self.lstm_seq(seq_emb.to(torch.float32),self.init_hidden(seq_emb.size(0), self.num_layers,self.hlstm_size))
+        sig,_=self.lstm_seq(sig.to(torch.float32),self.init_hidden(sig.size(0), self.num_layers,self.hlstm_size))
+        #batch_size,sig_len,2*self.hlstm_size
+        #print('seq_emb shape: {}'.format(seq_emb.shape))
+        #print('sig shape: {}'.format(sig.shape))
         # to(torch.float32) solve RuntimeError:expected scalar type Double but found Float
         x = torch.cat((seq_emb, sig), dim=1).to(torch.float32)
-        x = x.lstm(x)
+        #bach_size,kmer_len*2,self.hlstm_size*num_directions
+
+        #x,_ = self.lstm_comb(x,self.init_hidden(x.size(0), self.num_layers,self.hlstm_size))
+        
         # seq = self.primary_layer(seq)
         # seq = self.caps_layer(seq)
         # sig = self.primary_layer(sig)
         # sig = self.caps_layer(sig)
         x = self.primary_layer(x)
         x = self.caps_layer(x)
+        x=torch.reshape(x,(x.shape[0],-1))
         # x = self.dropout1(x)
         x = self.fc1(x)
         x = self.relu1(x)
@@ -195,7 +241,7 @@ class CapsNet(nn.Module):
         x = self.fc2(x)
         # x = self.relu2(x)
         # print(x.shape)
-        x = x.squeeze(1)
+        #x = x.squeeze(1)
 
         return x, self.softmax(x)
 
@@ -212,6 +258,8 @@ class CapsuleLoss(nn.Module):
     def __init__(self):
         super(CapsuleLoss, self).__init__()
         weight_rank = torch.from_numpy(np.array([1, 1.0])).float()
+        if use_cuda:
+            weight_rank = weight_rank.cuda()
         self.loss = nn.CrossEntropyLoss(weight=weight_rank)
 
     def forward(self, classes, labels):

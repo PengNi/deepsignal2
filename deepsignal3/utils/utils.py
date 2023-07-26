@@ -31,7 +31,7 @@ def parse_args():
         "--nproc", type=int, default=38, help="minimum number of processes in extract features."
     )
     parser.add_argument(
-        "--batch-size", type=int, default=200, help="size of batch in extract features."
+        "--batch-size", type=int, default=512, help="size of batch in extract features."
     )
     parser.add_argument(
         "--window-size",
@@ -42,8 +42,8 @@ def parse_args():
     parser.add_argument(
         "--conv-in", type=int, default=4, help="Input sequence features"
     )
-    parser.add_argument("--batch_size", type=int, default=512, required=False)
-    parser.add_argument("--step_interval", type=int, default=100, required=False)
+  
+    parser.add_argument("--step-interval", type=int, default=100, required=False)
     parser.add_argument("--lr", type=float, default=0.001, required=False)
     parser.add_argument(
         "--train-file",
