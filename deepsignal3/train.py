@@ -31,6 +31,10 @@ logger.addHandler(processdata_log)
 use_cuda = torch.cuda.is_available()
 torch.backends.cudnn.benchmark = True
 
+def trace_handler(p):
+    output = p.key_averages().table(sort_by="self_cuda_time_total", row_limit=6)
+    print(output)
+
 if __name__ == "__main__":
     logger.info('use gpu: {}'.format(use_cuda))
     total_start = time.time()
@@ -45,14 +49,21 @@ if __name__ == "__main__":
     logger.info('trainning and verifying batch size is {}'.format(args.batch_size))
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset, batch_size=args.batch_size, sampler=train_sampler,
-        num_workers=16,pin_memory=True,persistent_workers=True,prefetch_factor=10
+        num_workers=4,pin_memory=True,
+        persistent_workers=True,prefetch_factor=2
     )
     total_step = len(train_loader)
     valid_loader = torch.utils.data.DataLoader(
         dataset=train_dataset, batch_size=args.batch_size, sampler=val_sampler,
-        num_workers=16,pin_memory=True,persistent_workers=True,prefetch_factor=10
+        num_workers=2,pin_memory=True,
+        persistent_workers=True,prefetch_factor=2
     )
     model = CapsNet()#torch.nn.DataParallel(CapsNet())
+    #freeze_layers_prefix = ("embed", "lstm_seq","lstm_sig","primary_layer","caps_layer")
+    #for name, param in model.named_parameters():
+        #print(name, param.shape)
+    #    if name.split('.')[0] in freeze_layers_prefix:
+    #        param.requires_grad = False
     if use_cuda:
         model = model.cuda()
     criterion = CapsuleLoss()
@@ -73,13 +84,22 @@ if __name__ == "__main__":
                     os.remove(model_dir + "/" + mfile)
         model_dir += "/"
     model.train()
-    with torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA]) as prof:
+    with torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
+        schedule = torch.profiler.schedule(
+            skip_first=1,
+            wait=0,
+            warmup=2,
+            active=1
+        ), 
+        on_trace_ready=trace_handler
+     ) as prof:
         for epoch in range(args.max_epoch_num):
             curr_best_accuracy_epoch = 0
             no_best_model = True
             tlosses = []
             start = time.time()
-            for i, sfeatures in tqdm(enumerate(train_loader)):
+            loop = tqdm(enumerate(train_loader), total =len(train_loader))
+            for i, sfeatures in loop:#tqdm(enumerate(train_loader),total=len(train_loader),leave = True):
                 (seq, sig, labels) = sfeatures
                 if use_cuda:
                     seq = seq.cuda()
@@ -93,9 +113,11 @@ if __name__ == "__main__":
 
                 # Backward and optimize
                 optimizer.zero_grad()
-                loss.backward()
+                with torch.profiler.record_function("backward"):
+                    loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
                 optimizer.step()
+                prof.step()
                 if (i + 1) % args.step_interval == 0 or i == total_step - 1:
                     model.eval()
                     with torch.no_grad():
@@ -161,6 +183,8 @@ if __name__ == "__main__":
                                 time_cost,
                             )
                         )
+                        loop.set_description(f'Epoch [{epoch}/{args.max_epoch_num}]')
+                        loop.set_postfix(loss = loss.item(),acc = v_accuracy,precision=v_precision,recall=v_recall)
                         tlosses = []
                         start = time.time()
                         sys.stdout.flush()
