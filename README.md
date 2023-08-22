@@ -4,7 +4,7 @@
 [![GitHub-License](https://img.shields.io/github/license/PengNi/deepsignal2)](https://github.com/PengNi/deepsignal2/blob/master/LICENSE)
 
 [![PyPI-version](https://img.shields.io/pypi/v/deepsignal2)](https://pypi.org/project/deepsignal2/)
-[![PyPI-Downloads](https://pepy.tech/badge/deepsignal2)](https://pepy.tech/project/deepsignal2)
+[![PyPI-Downloads](https://static.pepy.tech/badge/deepsignal2)](https://pepy.tech/project/deepsignal2)
 
 ## A deep-learning method for detecting methylation state from Oxford Nanopore sequencing reads.
 **deepsignal2 has the same DNN structure with [deepsignal-plant](https://github.com/PengNi/deepsignal-plant), so the pre-trained models of deepsignal2/deepsignal-plant can be used by both tools. Importantly, when using models of these two tools, note that default `--seq_len` in deepsignal2 is 17, while in deepsignal-plant is 13.**
