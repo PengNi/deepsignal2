@@ -3,7 +3,7 @@ import linecache
 import os
 import numpy as np
 from utils import constants
-
+import gc
 
 def clear_linecache():
     # linecache should be treated carefully
@@ -56,12 +56,12 @@ class SignalDataset(Dataset):
 def parse_a_line2(line):
     words = line.strip().split("\t")
 
-    sampleinfo = "\t".join(words[0:6])
+    #sampleinfo = "\t".join(words[0:6])
 
     kmer = np.array([constants.base2code_dna[x] for x in words[6]])
-    base_means = np.array([float(x) for x in words[7].split(",")])
-    base_stds = np.array([float(x) for x in words[8].split(",")])
-    base_signal_lens = np.array([int(x) for x in words[9].split(",")])
+    #base_means = np.array([float(x) for x in words[7].split(",")])
+    #base_stds = np.array([float(x) for x in words[8].split(",")])
+    #base_signal_lens = np.array([int(x) for x in words[9].split(",")])
     k_signals = np.array([[float(y) for y in x.split(",")] for x in words[10].split(";")])
     label = int(words[11])
     return kmer, k_signals, label
@@ -97,6 +97,8 @@ class SignalFeaData2(Dataset):
         self._transform = transform
         with open(filename, "r") as f:
             self._total_data = len(f.readlines())
+
+        gc.collect()
 
     def __getitem__(self, idx):
         line = linecache.getline(self._filename, idx + 1)
