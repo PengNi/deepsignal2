@@ -171,6 +171,7 @@ def train_worker(local_rank, global_world_size, args):
         no_best_model = True
         tlosses = []
         start = time.time()
+        estart= time.time()
         #loop = tqdm(enumerate(train_loader), total =len(train_loader))
         data_iter = tqdm(train_loader,
                             desc="epoch %d" % (epoch),
@@ -195,65 +196,82 @@ def train_worker(local_rank, global_world_size, args):
             torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             optimizer.step()
         #    prof.step()
-            if ((i + 1) % args.step_interval == 0 or (i + 1) == total_step):
-                #这里加上global_rank == 0可能会卡住，因为下面有等待所有进程的操作，但实际上只有一个进程会进入这里
-                model.eval()
-                with torch.no_grad():
-                    vlosses, vlabels_total, vpredicted_total = [], [], []
+            if global_rank == 0 and ((i + 1) % args.step_interval == 0 or (i + 1) == total_step):
+                
+                time_cost = time.time() - start
+                logger.info(
+                    "Epoch [{}/{}], Step [{}/{}], TrainLoss: {:.4f}; "
+                    "Time: {:.2f}s".format(
+                        epoch + 1,
+                        args.max_epoch_num,
+                        i + 1,
+                        total_step,
+                        np.mean(tlosses),
+                        time_cost,
+                    )
+                )
+                tlosses = []
+                start = time.time()
+                sys.stdout.flush()
+                
+        model.eval()
+        with torch.no_grad():
+            vlosses, vlabels_total, vpredicted_total = [], [], []
                     
-                    for vi, vsfeatures in enumerate(valid_loader):#tqdm(valid_loader):
-                        (
-                            vseq,
-                            vsig,
-                            vlabels,
-                        ) = vsfeatures
-                        if use_cuda:
-                            vseq = vseq.cuda(local_rank, non_blocking=True)
-                            vsig = vsig.cuda(local_rank, non_blocking=True)
-                            vlabels = vlabels.cuda(local_rank, non_blocking=True)
-                        voutputs, vlogits = model(vseq, vsig)
-                        vloss = criterion(voutputs, vlabels)
-                        dist.barrier()
-                        vloss = reduce_mean(vloss, global_world_size)
+            for vi, vsfeatures in enumerate(valid_loader):#tqdm(valid_loader):
+                (
+                    vseq,
+                    vsig,
+                    vlabels,
+                ) = vsfeatures
+                if use_cuda:
+                    vseq = vseq.cuda(local_rank, non_blocking=True)
+                    vsig = vsig.cuda(local_rank, non_blocking=True)
+                    vlabels = vlabels.cuda(local_rank, non_blocking=True)
+                voutputs, vlogits = model(vseq, vsig)
+                vloss = criterion(voutputs, vlabels)
+                dist.barrier()
+                vloss = reduce_mean(vloss, global_world_size)
 
-                        _, vpredicted = torch.max(vlogits.data, 1)
-                        if use_cuda:
-                           vpredicted = vpredicted.cpu()
-                           vlabels = vlabels.cpu()
-                        # print(vpredicted)
-                        vlosses.append(vloss.item())
-                        vlabels_total += vlabels.tolist()
-                        vpredicted_total += vpredicted.tolist()
-                    v_accuracy = metrics.accuracy_score(
-                        vlabels_total, vpredicted_total
-                    )
-                    v_precision = metrics.precision_score(
-                        vlabels_total, vpredicted_total
-                    )
-                    v_recall = metrics.recall_score(vlabels_total, vpredicted_total)
-                    if v_accuracy > curr_best_accuracy_epoch:
-                        curr_best_accuracy_epoch = v_accuracy
-                        if curr_best_accuracy_epoch > curr_best_accuracy - 0.0002:
-                            #torch.save(
-                            #    #model.module.state_dict(),
-                            #    model.state_dict(),
-                            #    model_dir
-                            #    + args.target_chr + ".epoch{}.ckpt".format(
-                            #        epoch
-                            #    ),
-                            #)
-                            if global_rank == 0:
-                                # model.state_dict() or model.module.state_dict()?
-                                torch.save(model.module.state_dict(),
-                                    model_dir  + args.target_chr + ".epoch{}.ckpt".format(
-                                    epoch
-                                ))
-                            if curr_best_accuracy_epoch > curr_best_accuracy:
-                                curr_best_accuracy = curr_best_accuracy_epoch
-                                no_best_model = False
-                    time_cost = time.time() - start
+                _, vpredicted = torch.max(vlogits.data, 1)
+                if use_cuda:
+                   vpredicted = vpredicted.cpu()
+                   vlabels = vlabels.cpu()
+                # print(vpredicted)
+                vlosses.append(vloss.item())
+                vlabels_total += vlabels.tolist()
+                vpredicted_total += vpredicted.tolist()
+            v_accuracy = metrics.accuracy_score(
+                vlabels_total, vpredicted_total
+            )
+            v_precision = metrics.precision_score(
+                vlabels_total, vpredicted_total
+            )
+            v_recall = metrics.recall_score(vlabels_total, vpredicted_total)
+            if v_accuracy > curr_best_accuracy_epoch:
+                curr_best_accuracy_epoch = v_accuracy
+                if curr_best_accuracy_epoch > curr_best_accuracy - 0.0002:
+                    #torch.save(
+                    #    #model.module.state_dict(),
+                    #    model.state_dict(),
+                    #    model_dir
+                    #    + args.target_chr + ".epoch{}.ckpt".format(
+                    #        epoch
+                    #    ),
+                    #)
+                    if global_rank == 0:
+                        # model.state_dict() or model.module.state_dict()?
+                        torch.save(model.module.state_dict(),
+                            model_dir  + args.target_chr + ".epoch{}.ckpt".format(
+                            epoch
+                        ))
+                    if curr_best_accuracy_epoch > curr_best_accuracy:
+                        curr_best_accuracy = curr_best_accuracy_epoch
+                        no_best_model = False
+                time_cost = time.time() - estart
+                if global_rank == 0:
                     logger.info(
-                        "Epoch [{}/{}], Step [{}/{}], TrainLoss: {:.4f}; "
+                        "Epoch [{}/{}], Step [{}/{}]; "
                         "ValidLoss: {:.4f}, "
                         "Accuracy: {:.4f}, Precision: {:.4f}, Recall: {:.4f}, "
                         "curr_epoch_best_accuracy: {:.4f}; Time: {:.2f}s".format(
@@ -261,7 +279,6 @@ def train_worker(local_rank, global_world_size, args):
                             args.max_epoch_num,
                             i + 1,
                             total_step,
-                            np.mean(tlosses),
                             np.mean(vlosses),
                             v_accuracy,
                             v_precision,
@@ -270,30 +287,34 @@ def train_worker(local_rank, global_world_size, args):
                             time_cost,
                         )
                     )
-                    post_fix = {
+                post_fix = {
                     "epoch": epoch,
                     "iter": i,
                     "ValidLoss": np.mean(vlosses),
                     "Accuracy": v_accuracy,
                 }
-                    data_iter.write(str(post_fix))
-                    #loop.set_description(f'Epoch [{epoch}/{args.max_epoch_num}]')
-                    #loop.set_postfix(loss = loss.item(),acc = v_accuracy,precision=v_precision,recall=v_recall)
-                    tlosses = []
-                    start = time.time()
-                    sys.stdout.flush()
-                model.train()
+                data_iter.write(str(post_fix))
+                sys.stderr.flush()
+                #loop.set_description(f'Epoch [{epoch}/{args.max_epoch_num}]')
+                #loop.set_postfix(loss = loss.item(),acc = v_accuracy,precision=v_precision,recall=v_recall)
+                    
+        model.train()
+        if args.epoch_sync:
+            sync_ckpt = model_dir + args.model_type + \
+                        '.epoch_sync_node{}.target_{}_epoch{}.ckpt'.format(args.node_rank, args.target_chr, epoch + 1)
+            checkpoint(model, local_rank, sync_ckpt)
         scheduler.step()
         if no_best_model and epoch >= args.min_epoch_num - 1:
             logger.info("early stop!")
             break
-    endtime = time.time()
-    clear_linecache()
+    endtime = time.time()  
     if global_rank == 0:
         logger.info(
             "[main] train costs {} seconds, "
             "best accuracy: {}".format(endtime - args.total_start, curr_best_accuracy)
         )
+    clear_linecache()
+    cleanup()
     
     #print(prof.key_averages().table(sort_by="self_cuda_time_total", row_limit=10))
     #logger.info(prof.key_averages().table(sort_by="self_cuda_time_total", row_limit=10))
