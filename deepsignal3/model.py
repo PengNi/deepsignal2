@@ -142,13 +142,14 @@ class CapsLayer(nn.Module):
         self, num_capsules=1, 
         in_caps=20,#10, 
         in_channels=256,#272, 
-        out_channels=20  # in_channels=105
+        out_channels=20,  # in_channels=105
+        device=0
     ):
         super(CapsLayer, self).__init__()
-        
+        self.device=device
         if use_cuda:
             self.W = nn.Parameter(
-                torch.randn(1, num_capsules, in_caps, out_channels, in_channels).cuda())
+                torch.randn(1, num_capsules, in_caps, out_channels, in_channels).cuda(self.device))
         else:
             self.W = nn.Parameter(
                 torch.randn(1, num_capsules, in_caps, out_channels, in_channels))
@@ -197,8 +198,10 @@ class CapsNet(nn.Module):
                  embedding_size=16, 
                  dropout_rate=0.5, 
                  num_layers=3,
-                 hlstm_size=128):
+                 hlstm_size=128,
+                 device=0):
         super(CapsNet, self).__init__()
+        self.device=device
         self.embed = nn.Embedding(vocab_size, embedding_size)
         self.hlstm_size=hlstm_size
         self.num_layers=num_layers
@@ -210,7 +213,8 @@ class CapsNet(nn.Module):
         self.primary_layer = PrimaryCapsuleLayer(conv_in=constants.KMER_LEN*2,
                                                  conv_out=primary_conv_out,conv_num=primary_conv,
                                                  kernel_size=primary_kernel_size)
-        self.caps_layer = CapsLayer(num_capsules=num_capsules,in_caps=primary_conv_out*primary_conv,in_channels=2*hlstm_size,out_channels=cap_output_num)
+        self.caps_layer = CapsLayer(num_capsules=num_capsules,in_caps=primary_conv_out*primary_conv,
+                                    in_channels=2*hlstm_size,out_channels=cap_output_num,device=self.device)
         self.dropout1 = nn.Dropout(p=dropout_rate)
         self.fc1 = nn.Linear(cap_output_num*num_capsules, hidden_size)  #
         self.relu1 = nn.ReLU()
@@ -224,8 +228,8 @@ class CapsNet(nn.Module):
         h0 = autograd.Variable(torch.randn(num_layers * 2, batch_size, hidden_size)).to(torch.float32)
         c0 = autograd.Variable(torch.randn(num_layers * 2, batch_size, hidden_size)).to(torch.float32)
         if use_cuda:
-            h0 = h0.cuda()
-            c0 = c0.cuda()
+            h0 = h0.cuda(self.device)
+            c0 = c0.cuda(self.device)
         return h0, c0
 
     def forward(self, seq, sig):
@@ -237,7 +241,7 @@ class CapsNet(nn.Module):
         #batch_size=seq_emb.shape[0]
         #print(batch_size)
         seq_emb,_=self.lstm_seq(seq_emb.to(torch.float32),self.init_hidden(seq_emb.size(0), self.num_layers,self.hlstm_size))
-        sig,_=self.lstm_seq(sig.to(torch.float32),self.init_hidden(sig.size(0), self.num_layers,self.hlstm_size))
+        sig,_=self.lstm_sig(sig.to(torch.float32),self.init_hidden(sig.size(0), self.num_layers,self.hlstm_size))
         #batch_size,sig_len,2*self.hlstm_size
         #print('seq_emb shape: {}'.format(seq_emb.shape))
         #print('sig shape: {}'.format(sig.shape))
@@ -275,11 +279,12 @@ def test_for_caps_net():
 
 
 class CapsuleLoss(nn.Module):
-    def __init__(self):
+    def __init__(self,device=0):
         super(CapsuleLoss, self).__init__()
         weight_rank = torch.from_numpy(np.array([1, 1.0])).float()
+        self.device=device
         if use_cuda:
-            weight_rank = weight_rank.cuda()
+            weight_rank = weight_rank.cuda(self.device)
         self.loss = nn.CrossEntropyLoss(weight=weight_rank)
 
     def forward(self, classes, labels):

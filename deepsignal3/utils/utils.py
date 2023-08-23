@@ -31,7 +31,7 @@ def parse_args():
         "--nproc", type=int, default=38, help="minimum number of processes in extract features."
     )
     parser.add_argument(
-        "--batch-size", type=int, default=512, help="size of batch in extract features."
+        "--batch-size", type=int, default=64, help="size of batch in extract features."
     )
     parser.add_argument(
         "--window-size",
@@ -73,4 +73,18 @@ def parse_args():
         required=False,
         help="min epoch num, default 5",
     )
+    parser.add_argument('--init_model', type=str, default=None, required=False,
+                             help="file path of pre-trained model parameters to load before training")
+    parser.add_argument('--tseed', type=int, default=1234,
+                             help='random seed for pytorch')
+    parser.add_argument("--nodes", default=1, type=int,
+                              help="number of nodes for distributed training, default 1")
+    parser.add_argument("--ngpus_per_node", default=2, type=int,
+                              help="number of GPUs per node for distributed training, default 2")
+    parser.add_argument("--dist-url", default="tcp://127.0.0.1:12315", type=str,
+                              help="url used to set up distributed training")
+    parser.add_argument("--node_rank", default=0, type=int,
+                              help="node rank for distributed training, default 0")
+    parser.add_argument("--epoch_sync", action="store_true", default=False,
+                              help="if sync model params of gpu0 to other local gpus after per epoch")
     return parser.parse_args()  # 在jupyter里面运行时()要加[]，在命令行运行时要去掉[]，不然都会报错
