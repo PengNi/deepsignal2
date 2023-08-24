@@ -81,6 +81,23 @@ def prepare_dataset(filename, target_chr) -> str:
                 line = fr.readline()
     return chr_filename
 
+def count_line_num(sl_filepath, fheader=False):
+    count = 0
+    with open(sl_filepath, 'r') as rf:
+        if fheader:
+            next(rf)
+        for _ in rf:
+            count += 1
+    # print('done count the lines of file {}'.format(sl_filepath))
+    return count
+
+def generate_offsets(filename):
+    offsets = []
+    with open(filename, "r") as rf:
+        offsets.append(rf.tell())
+        while rf.readline():
+            offsets.append(rf.tell())
+    return offsets
 
 class SignalFeaData2(Dataset):
     def __init__(self, filename, target_chr="chr11", transform=None):
@@ -95,20 +112,33 @@ class SignalFeaData2(Dataset):
         self._filename = os.path.abspath(filename)
         self._total_data = 0
         self._transform = transform
-        with open(filename, "r") as f:
-            self._total_data = len(f.readlines())
+        self._total_data = count_line_num(filename, False)
+        self._offsets = generate_offsets(filename)
+        self._current_offset = 0
+        #with open(filename, "r") as f:
+        #    self._total_data = len(f.readlines())#这里会读取整个文件，而且似乎在多GPU并行中超级加倍了，真坑
 
         gc.collect()
 
     def __getitem__(self, idx):
-        line = linecache.getline(self._filename, idx + 1)
-        if line == "":
-            return None
-        else:
-            output = parse_a_line2(line)
-            if self._transform is not None:
-                output = self._transform(output)
-            return output
+        #line = linecache.getline(self._filename, idx + 1)
+        #if line == "":
+        #    return None
+        #else:
+        #    output = parse_a_line2(line)
+        #    if self._transform is not None:
+        #        output = self._transform(output)
+        #    return output
+        offset = self._offsets[idx]
+        # self._data_stream.seek(offset)
+        # line = self._data_stream.readline()
+        with open(self._filename, "r") as rf:
+            rf.seek(offset)
+            line = rf.readline()
+        output = parse_a_line2(line)
+        if self._transform is not None:
+            output = self._transform(output)
+        return output
 
     def __len__(self):
         return self._total_data

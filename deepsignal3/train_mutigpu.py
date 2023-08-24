@@ -4,6 +4,7 @@ import os
 import sys
 import numpy as np
 from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 import time
 from sklearn import metrics
 import re
@@ -100,14 +101,14 @@ def train_worker(local_rank, global_world_size, args):
     logger.info('trainning and verifying batch size is {}'.format(args.batch_size))
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset, batch_size=args.batch_size, sampler=train_sampler,
-        num_workers=2,#pin_memory=True,
+        num_workers=2,pin_memory=True,
         shuffle=False,
         persistent_workers=True,prefetch_factor=2
     )
     total_step = len(train_loader)
     valid_loader = torch.utils.data.DataLoader(
         dataset=train_dataset, batch_size=args.batch_size, sampler=val_sampler,
-        num_workers=2,#pin_memory=True,
+        num_workers=2,pin_memory=True,
         shuffle=False,
         persistent_workers=True,prefetch_factor=2
     )
@@ -145,7 +146,15 @@ def train_worker(local_rank, global_world_size, args):
     
     criterion = CapsuleLoss(device=local_rank)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    scheduler = StepLR(optimizer, step_size=2, gamma=0.1)
+    #scheduler = StepLR(optimizer, step_size=2, gamma=0.1)
+    if args.lr_scheduler == "StepLR":
+        scheduler = StepLR(optimizer, step_size=args.lr_decay_step, gamma=args.lr_decay)
+    elif args.lr_scheduler == "ReduceLROnPlateau":
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=args.lr_decay,
+                                      patience=args.lr_patience, verbose=True)
+    else:
+        raise ValueError("--lr_scheduler is not right!")
+
     curr_best_accuracy = 0
 
     if args.init_model is not None:
@@ -217,7 +226,7 @@ def train_worker(local_rank, global_world_size, args):
         model.eval()
         with torch.no_grad():
             vlosses, vlabels_total, vpredicted_total = [], [], []
-                    
+            v_meanloss = 10000        
             for vi, vsfeatures in enumerate(valid_loader):#tqdm(valid_loader):
                 (
                     vseq,
@@ -248,6 +257,7 @@ def train_worker(local_rank, global_world_size, args):
                 vlabels_total, vpredicted_total
             )
             v_recall = metrics.recall_score(vlabels_total, vpredicted_total)
+            v_meanloss = np.mean(vlosses)
             if v_accuracy > curr_best_accuracy_epoch:
                 curr_best_accuracy_epoch = v_accuracy
                 if curr_best_accuracy_epoch > curr_best_accuracy - 0.0002:
@@ -303,7 +313,11 @@ def train_worker(local_rank, global_world_size, args):
             sync_ckpt = model_dir + args.model_type + \
                         '.epoch_sync_node{}.target_{}_epoch{}.ckpt'.format(args.node_rank, args.target_chr, epoch + 1)
             checkpoint(model, local_rank, sync_ckpt)
-        scheduler.step()
+        if args.lr_scheduler == "ReduceLROnPlateau":
+            lr_reduce_metric = v_meanloss
+            scheduler.step(lr_reduce_metric)
+        else:
+            scheduler.step()
         if no_best_model and epoch >= args.min_epoch_num - 1:
             logger.info("early stop!")
             break
