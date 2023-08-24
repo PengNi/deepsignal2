@@ -68,7 +68,7 @@ def _get_label_raw(fast5_fn, correct_group, correct_subgroup):
         fast5_data.close()
         raise KeyError('no read_start_rel_to_raw in event attributes')
 
-    lengths = event['length'].astype(np.int)
+    lengths = event['length'].astype(int)
     base = [x.decode("UTF-8") for x in event['base']]
     assert len(starts) == len(lengths)
     assert len(lengths) == len(base)
@@ -147,9 +147,9 @@ def _get_alignment_info_from_fast5(fast5_path, corrected_group='RawGenomeCorrect
 
 def _normalize_signals(signals, normalize_method="mad"):
     if normalize_method == 'zscore':
-        sshift, sscale = np.mean(signals), np.float(np.std(signals))
+        sshift, sscale = np.mean(signals), float(np.std(signals))
     elif normalize_method == 'mad':
-        sshift, sscale = np.median(signals), np.float(robust.mad(signals))
+        sshift, sscale = np.median(signals), float(robust.mad(signals))
     else:
         raise ValueError("")
     norm_signals = (signals - sshift) / sscale
@@ -230,7 +230,7 @@ def _get_scaling_of_a_read(fast5fp):
 
 
 def _rescale_signals(rawsignals, scaling, offset):
-    return np.array(scaling * (rawsignals + offset), dtype=np.float)
+    return np.array(scaling * (rawsignals + offset), dtype=float)
 
 
 def _extract_features(fast5s, corrected_group, basecall_subgroup, normalize_method,
