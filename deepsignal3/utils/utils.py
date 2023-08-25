@@ -79,9 +79,13 @@ def parse_args():
         required=False,
         help="min epoch num, default 5",
     )
+    parser.add_argument('--optim_type', type=str, default="LookaheadAdam", choices=["Adam", "RMSprop", "SGD",
+                                                                                "Ranger", "LookaheadAdam"],
+                             required=False, help="type of optimizer to use, 'Adam', 'SGD', 'RMSprop', "
+                                                  "'Ranger' or 'LookaheadAdam', default LookaheadAdam")
     parser.add_argument('--lr_scheduler', type=str, default='ReduceLROnPlateau', required=False,
                              choices=["StepLR", "ReduceLROnPlateau"],
-                             help="StepLR or ReduceLROnPlateau, default StepLR")
+                             help="StepLR or ReduceLROnPlateau, default ReduceLROnPlateau")
     parser.add_argument('--init_model', type=str, default=None, required=False,
                              help="file path of pre-trained model parameters to load before training")
     parser.add_argument('--tseed', type=int, default=1234,

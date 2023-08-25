@@ -90,7 +90,7 @@ def train_worker(local_rank, global_world_size, args):
     sys.stderr.write("training_process-{} reading data..\n".format(os.getpid()))
     train_dataset = SignalFeaData2(args.train_file, args.target_chr)
 
-    split_num = int(len(train_dataset) * 0.8)
+    split_num = int(len(train_dataset) * 0.99)#0.8
     index_list = list(range(len(train_dataset)))
     train_idx, val_idx = index_list[:split_num], index_list[split_num:]
 
@@ -145,7 +145,29 @@ def train_worker(local_rank, global_world_size, args):
     #        param.requires_grad = False
     
     criterion = CapsuleLoss(device=local_rank)
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    #optimizer = torch.optim.Adam(model.parameters(), lr=args.lr,eps=1e-04)
+    if args.optim_type == "Adam":
+        optimizer = torch.optim.Adam(model.parameters(), lr=args.lr,eps=1e-04)
+    elif args.optim_type == "RMSprop":
+        optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr,eps=1e-04)
+    elif args.optim_type == "SGD":
+        optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.8,eps=1e-04)
+    elif args.optim_type == "LookaheadAdam":
+        try:
+            from utils.lookahead import LookaheadAdam
+        except ImportError:
+            raise ImportError("please check if lookahead.py is in utils/ dir!")
+        optimizer = LookaheadAdam(model.parameters(), lr=args.lr,eps=1e-04)
+    else:
+        raise ValueError("--optim_type is not right!")
+
+    if args.lr_scheduler == "StepLR":
+        scheduler = StepLR(optimizer, step_size=args.lr_decay_step, gamma=args.lr_decay)
+    elif args.lr_scheduler == "ReduceLROnPlateau":
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=args.lr_decay,
+                                      patience=args.lr_patience, verbose=True)
+    else:
+        raise ValueError("--lr_scheduler is not right!")
     #scheduler = StepLR(optimizer, step_size=2, gamma=0.1)
     if args.lr_scheduler == "StepLR":
         scheduler = StepLR(optimizer, step_size=args.lr_decay_step, gamma=args.lr_decay)
@@ -156,6 +178,8 @@ def train_worker(local_rank, global_world_size, args):
         raise ValueError("--lr_scheduler is not right!")
 
     curr_best_accuracy = 0
+    curr_best_accuracy_loc = 0
+    #curr_lowest_loss = 10000
 
     if args.init_model is not None:
         sys.stderr.write("training_process-{} loading pre-trained model: {}\n".format(os.getpid(), args.init_model))
@@ -183,9 +207,9 @@ def train_worker(local_rank, global_world_size, args):
         estart= time.time()
         #loop = tqdm(enumerate(train_loader), total =len(train_loader))
         data_iter = tqdm(train_loader,
-                            desc="epoch %d" % (epoch),
+                            desc="epoch %d" % (epoch+1),
                             total=len(train_loader),
-                            bar_format="{l_bar}{r_bar}")
+                            bar_format="{l_bar}{bar}{r_bar}")
         for i, sfeatures in enumerate(data_iter):
             (seq, sig, labels) = sfeatures
             if use_cuda:
@@ -273,10 +297,11 @@ def train_worker(local_rank, global_world_size, args):
                         # model.state_dict() or model.module.state_dict()?
                         torch.save(model.module.state_dict(),
                             model_dir  + args.target_chr + ".epoch{}.ckpt".format(
-                            epoch
+                            epoch+1
                         ))
                     if curr_best_accuracy_epoch > curr_best_accuracy:
                         curr_best_accuracy = curr_best_accuracy_epoch
+                        curr_best_accuracy_loc = epoch + 1
                         no_best_model = False
                 time_cost = time.time() - estart
                 if global_rank == 0:
@@ -297,13 +322,17 @@ def train_worker(local_rank, global_world_size, args):
                             time_cost,
                         )
                     )
-                post_fix = {
-                    "epoch": epoch,
-                    "iter": i,
-                    "ValidLoss": np.mean(vlosses),
-                    "Accuracy": v_accuracy,
-                }
-                data_iter.write(str(post_fix))
+                #post_fix = {
+                #    "epoch": epoch,
+                #    "iter": i,
+                #    "ValidLoss": np.mean(vlosses),
+                #    "Accuracy": v_accuracy,
+                #}
+                if global_rank == 0:
+                    data_iter.write("epoch: {}, iter: {}, ValidLoss: {}, \
+                                Accuracy: {}".format(epoch+1,i,np.mean(vlosses),v_accuracy))
+                    logger.info("best model is in epoch {} (Acc: {})".format(curr_best_accuracy_loc,
+                                                                        curr_best_accuracy))
                 sys.stderr.flush()
                 #loop.set_description(f'Epoch [{epoch}/{args.max_epoch_num}]')
                 #loop.set_postfix(loss = loss.item(),acc = v_accuracy,precision=v_precision,recall=v_recall)
