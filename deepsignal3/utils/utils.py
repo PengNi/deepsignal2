@@ -66,7 +66,7 @@ def parse_args():
     parser.add_argument(
         "--max-epoch-num",
         action="store",
-        default=10,
+        default=100,
         type=int,
         required=False,
         help="max epoch num, default 10",
@@ -79,8 +79,8 @@ def parse_args():
         required=False,
         help="min epoch num, default 5",
     )
-    parser.add_argument('--optim_type', type=str, default="LookaheadAdam", choices=["Adam", "RMSprop", "SGD",
-                                                                                "Ranger", "LookaheadAdam"],
+    parser.add_argument('--optim_type', type=str, default="Adam", choices=["Adam", "RMSprop", "SGD",
+                                                                                "LookaheadAdam"],
                              required=False, help="type of optimizer to use, 'Adam', 'SGD', 'RMSprop', "
                                                   "'Ranger' or 'LookaheadAdam', default LookaheadAdam")
     parser.add_argument('--lr_scheduler', type=str, default='ReduceLROnPlateau', required=False,

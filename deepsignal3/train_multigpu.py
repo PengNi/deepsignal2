@@ -209,7 +209,7 @@ def train_worker(local_rank, global_world_size, args):
         data_iter = tqdm(train_loader,
                             desc="epoch %d" % (epoch+1),
                             total=len(train_loader),
-                            bar_format="{l_bar}{bar}{r_bar}")
+                            bar_format="{l_bar}{r_bar}")
         for i, sfeatures in enumerate(data_iter):
             (seq, sig, labels) = sfeatures
             if use_cuda:
@@ -282,6 +282,12 @@ def train_worker(local_rank, global_world_size, args):
             )
             v_recall = metrics.recall_score(vlabels_total, vpredicted_total)
             v_meanloss = np.mean(vlosses)
+            time_cost = time.time() - estart                    
+            if global_rank == 0:
+                        # model.state_dict() or model.module.state_dict()?
+                data_iter.write("epoch: {}, iter: {}, ValidLoss: {}, \
+                    Accuracy: {}".format(epoch+1,i,np.mean(vlosses),v_accuracy))
+                    
             if v_accuracy > curr_best_accuracy_epoch:
                 curr_best_accuracy_epoch = v_accuracy
                 if curr_best_accuracy_epoch > curr_best_accuracy - 0.0002:
@@ -303,36 +309,38 @@ def train_worker(local_rank, global_world_size, args):
                         curr_best_accuracy = curr_best_accuracy_epoch
                         curr_best_accuracy_loc = epoch + 1
                         no_best_model = False
-                time_cost = time.time() - estart
-                if global_rank == 0:
-                    logger.info(
-                        "Epoch [{}/{}], Step [{}/{}]; "
-                        "ValidLoss: {:.4f}, "
-                        "Accuracy: {:.4f}, Precision: {:.4f}, Recall: {:.4f}, "
-                        "curr_epoch_best_accuracy: {:.4f}; Time: {:.2f}s".format(
-                            epoch + 1,
-                            args.max_epoch_num,
-                            i + 1,
-                            total_step,
-                            np.mean(vlosses),
-                            v_accuracy,
-                            v_precision,
-                            v_recall,
-                            curr_best_accuracy_epoch,
-                            time_cost,
-                        )
+                
+            if global_rank == 0:
+                    
+                logger.info(
+                    "Epoch [{}/{}], Step [{}/{}]; "
+                    "ValidLoss: {:.4f}, "
+                    "Accuracy: {:.4f}, Precision: {:.4f}, Recall: {:.4f}, "
+                    "curr_epoch_best_accuracy: {:.4f}; Time: {:.2f}s".format(
+                        epoch + 1,
+                        args.max_epoch_num,
+                        i + 1,
+                        total_step,
+                        np.mean(vlosses),
+                        v_accuracy,
+                        v_precision,
+                        v_recall,
+                        curr_best_accuracy_epoch,
+                        time_cost,
                     )
+                        
+                )
+                logger.info("best model is in epoch {} (Acc: {})".format(curr_best_accuracy_loc,
+                                                                        curr_best_accuracy))
                 #post_fix = {
                 #    "epoch": epoch,
                 #    "iter": i,
                 #    "ValidLoss": np.mean(vlosses),
                 #    "Accuracy": v_accuracy,
                 #}
-                if global_rank == 0:
-                    data_iter.write("epoch: {}, iter: {}, ValidLoss: {}, \
-                                Accuracy: {}".format(epoch+1,i,np.mean(vlosses),v_accuracy))
-                    logger.info("best model is in epoch {} (Acc: {})".format(curr_best_accuracy_loc,
-                                                                        curr_best_accuracy))
+                #if global_rank == 0:
+                    
+                    
                 sys.stderr.flush()
                 #loop.set_description(f'Epoch [{epoch}/{args.max_epoch_num}]')
                 #loop.set_postfix(loss = loss.item(),acc = v_accuracy,precision=v_precision,recall=v_recall)
@@ -397,4 +405,5 @@ if __name__ == "__main__":
         
     
     train(args)
+    torch.cuda.empty_cache()
     
