@@ -242,7 +242,8 @@ class CapsNet(nn.Module):
         self.sig_len = constants.SIG_LEN
         # 定义位置编码器
         self.positional_encoding = PositionalEncoding(embedding_size, dropout=0)
-        self.transformer = nn.Transformer(d_model=embedding_size, num_encoder_layers=2, num_decoder_layers=2, dim_feedforward=self.hlstm_size, batch_first=True)
+        self.transformer = nn.Transformer(d_model=embedding_size, num_encoder_layers=6, 
+                                          num_decoder_layers=6, dim_feedforward=self.hlstm_size, batch_first=True)
     
         self.transformer_fc = nn.Linear(self.sig_len, hlstm_size*2)
         #self.lstm_seq = nn.LSTM(self.sig_len, self.hlstm_size, self.num_layers,

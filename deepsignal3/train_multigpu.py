@@ -147,7 +147,7 @@ def train_worker(local_rank, global_world_size, args):
     criterion = CapsuleLoss(device=local_rank)
     #optimizer = torch.optim.Adam(model.parameters(), lr=args.lr,eps=1e-04)
     if args.optim_type == "Adam":
-        optimizer = torch.optim.Adam(model.parameters(), lr=args.lr,eps=1e-04)
+        optimizer = torch.optim.Adam(model.parameters(), lr=args.lr,eps=1e-03)
     elif args.optim_type == "RMSprop":
         optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr,eps=1e-04)
     elif args.optim_type == "SGD":
@@ -276,10 +276,10 @@ def train_worker(local_rank, global_world_size, args):
             v_recall = metrics.recall_score(vlabels_total, vpredicted_total)
             v_meanloss = np.mean(vlosses)
             time_cost = time.time() - estart                    
-            if global_rank == 0:
-                        # model.state_dict() or model.module.state_dict()?
-                data_iter.write("epoch: {}, iter: {}, ValidLoss: {}, \
-                    Accuracy: {}".format(epoch+1,i,np.mean(vlosses),v_accuracy))
+            #if global_rank == 0:
+            #            # model.state_dict() or model.module.state_dict()?
+            #    data_iter.write("epoch: {}, iter: {}, ValidLoss: {}, \
+            #        Accuracy: {}".format(epoch+1,i,np.mean(vlosses),v_accuracy))
                     
             if v_accuracy > curr_best_accuracy_epoch:
                 curr_best_accuracy_epoch = v_accuracy
@@ -325,6 +325,7 @@ def train_worker(local_rank, global_world_size, args):
                 )
                 logger.info("best model is in epoch {} (Acc: {})".format(curr_best_accuracy_loc,
                                                                         curr_best_accuracy))
+                
                 #post_fix = {
                 #    "epoch": epoch,
                 #    "iter": i,
@@ -357,6 +358,8 @@ def train_worker(local_rank, global_world_size, args):
             "[main] train costs {} seconds, "
             "best accuracy: {}".format(endtime - args.total_start, curr_best_accuracy)
         )
+        sys.stderr.write("best model is in epoch {} (Acc: {})".format(curr_best_accuracy_loc,
+                                                                        curr_best_accuracy))
     clear_linecache()
     cleanup()
     

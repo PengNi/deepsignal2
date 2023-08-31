@@ -69,7 +69,7 @@ def parse_args():
         default=100,
         type=int,
         required=False,
-        help="max epoch num, default 10",
+        help="max epoch num, default 100",
     )
     parser.add_argument(
         "--min-epoch-num",
