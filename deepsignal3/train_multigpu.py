@@ -169,13 +169,6 @@ def train_worker(local_rank, global_world_size, args):
     else:
         raise ValueError("--lr_scheduler is not right!")
     #scheduler = StepLR(optimizer, step_size=2, gamma=0.1)
-    if args.lr_scheduler == "StepLR":
-        scheduler = StepLR(optimizer, step_size=args.lr_decay_step, gamma=args.lr_decay)
-    elif args.lr_scheduler == "ReduceLROnPlateau":
-        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=args.lr_decay,
-                                      patience=args.lr_patience, verbose=True)
-    else:
-        raise ValueError("--lr_scheduler is not right!")
 
     curr_best_accuracy = 0
     curr_best_accuracy_loc = 0
