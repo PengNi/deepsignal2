@@ -25,7 +25,18 @@ from deepsignal2.utils.process_utils import get_refloc_of_methysite_in_motif
 from deepsignal2.utils.process_utils import get_motif_seqs
 
 from deepsignal2.utils.ref_reader import get_contig2len
-
+import logging
+logger = logging.getLogger("train_logger")
+logger.setLevel(logging.DEBUG)
+processdata_log = logging.FileHandler(
+    '../log/extract.log', "a", encoding="utf-8"
+)
+formatter = logging.Formatter(
+    "%(asctime)s - %(filename)s - line:%(lineno)d - %(levelname)s - %(message)s -%(process)s"
+)
+processdata_log.setFormatter(formatter)
+# 加载文件到logger对象中
+logger.addHandler(processdata_log)
 reads_group = 'Raw/Reads'
 queue_size_border_f5batch = 100
 time_wait = 1
@@ -337,6 +348,7 @@ def get_a_batch_features_str(fast5s_q, featurestr_q, errornum_q,
                              motif_seqs, methyloc, chrom2len, kmer_len, signals_len, methy_label,
                              positions):
     print("extrac_features process-{} starts".format(os.getpid()))
+    logger.info("extrac_features process-{} starts".format(os.getpid()))
     f5_num = 0
     while True:
         if fast5s_q.empty():
@@ -359,10 +371,12 @@ def get_a_batch_features_str(fast5s_q, featurestr_q, errornum_q,
         while featurestr_q.qsize() > queue_size_border_f5batch:
             time.sleep(time_wait)
     print("extrac_features process-{} ending, proceed {} fast5s".format(os.getpid(), f5_num))
+    logger.info("extrac_features process-{} ending, proceed {} fast5s".format(os.getpid(), f5_num))
 
 
 def _write_featurestr_to_file(write_fp, featurestr_q):
     print("write_process-{} starts".format(os.getpid()))
+    logger.info("write_process-{} starts".format(os.getpid()))
     with open(write_fp, 'w') as wf:
         while True:
             # during test, it's ok without the sleep(time_wait)
@@ -372,6 +386,7 @@ def _write_featurestr_to_file(write_fp, featurestr_q):
             features_str = featurestr_q.get()
             if features_str == "kill":
                 print('write_process-{} finished'.format(os.getpid()))
+                logger.info('write_process-{} finished'.format(os.getpid()))
                 break
             for one_features_str in features_str:
                 wf.write(one_features_str + "\n")
@@ -397,6 +412,7 @@ def _write_featurestr_to_dir(write_dir, featurestr_q, w_batch_num):
         features_str = featurestr_q.get()
         if features_str == "kill":
             print('write_process-{} finished'.format(os.getpid()))
+            logger.info('write_process-{} finished'.format(os.getpid()))
             break
 
         if batch_count >= w_batch_num:
@@ -431,6 +447,7 @@ def _extract_preprocess(fast5_dir, is_recursive, motifs, is_dna, reference_path,
 
     fast5_files = get_fast5s(fast5_dir, is_recursive)
     print("{} fast5 files in total..".format(len(fast5_files)))
+    logger.info("{} fast5 files in total..".format(len(fast5_files)))
 
     print("parse the motifs string..")
     motif_seqs = get_motif_seqs(motifs, is_dna)
@@ -459,6 +476,7 @@ def extract_features(fast5_dir, is_recursive, reference_path, is_dna,
                      motifs, methyloc, kmer_len, signals_len, methy_label,
                      position_file, w_is_dir, w_batch_num):
     print("[main]extract_features starts..")
+    logger.info("[main]extract_features starts..")
     start = time.time()
 
     motif_seqs, chrom2len, fast5s_q, len_fast5s, positions = _extract_preprocess(fast5_dir, is_recursive,
@@ -507,6 +525,9 @@ def extract_features(fast5_dir, is_recursive, reference_path, is_dna,
     p_w.join()
 
     print("%d of %d fast5 files failed..\n"
+          "[main]extract_features costs %.1f seconds.." % (errornum_sum, len_fast5s,
+                                                           time.time() - start))
+    logger.info("%d of %d fast5 files failed..\n"
           "[main]extract_features costs %.1f seconds.." % (errornum_sum, len_fast5s,
                                                            time.time() - start))
 
