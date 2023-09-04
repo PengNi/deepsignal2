@@ -31,7 +31,7 @@ def parse_args():
         "--nproc", type=int, default=38, help="minimum number of processes in extract features."
     )
     parser.add_argument(
-        "--batch-size", type=int, default=64, help="size of batch in extract features."
+        "--batch-size", type=int, default=256, help="size of batch in extract features."
     )
     parser.add_argument(
         "--window-size",
@@ -45,6 +45,12 @@ def parse_args():
   
     parser.add_argument("--step-interval", type=int, default=100, required=False)
     parser.add_argument("--lr", type=float, default=0.001, required=False)
+    parser.add_argument('--lr_decay', type=float, default=0.1, required=False,
+                             help="default 0.1")
+    parser.add_argument('--lr_decay_step', type=int, default=1, required=False,
+                             help="effective in StepLR. default 1")
+    parser.add_argument('--lr_patience', type=int, default=0, required=False,
+                             help="effective in ReduceLROnPlateau. default 0")
     parser.add_argument(
         "--train-file",
         type=str,
@@ -60,10 +66,10 @@ def parse_args():
     parser.add_argument(
         "--max-epoch-num",
         action="store",
-        default=10,
+        default=100,
         type=int,
         required=False,
-        help="max epoch num, default 10",
+        help="max epoch num, default 100",
     )
     parser.add_argument(
         "--min-epoch-num",
@@ -73,13 +79,20 @@ def parse_args():
         required=False,
         help="min epoch num, default 5",
     )
+    parser.add_argument('--optim_type', type=str, default="Adam", choices=["Adam", "RMSprop", "SGD",
+                                                                                "LookaheadAdam"],
+                             required=False, help="type of optimizer to use, 'Adam', 'SGD', 'RMSprop', "
+                                                  "'Ranger' or 'LookaheadAdam', default LookaheadAdam")
+    parser.add_argument('--lr_scheduler', type=str, default='ReduceLROnPlateau', required=False,
+                             choices=["StepLR", "ReduceLROnPlateau"],
+                             help="StepLR or ReduceLROnPlateau, default ReduceLROnPlateau")
     parser.add_argument('--init_model', type=str, default=None, required=False,
                              help="file path of pre-trained model parameters to load before training")
     parser.add_argument('--tseed', type=int, default=1234,
                              help='random seed for pytorch')
     parser.add_argument("--nodes", default=1, type=int,
                               help="number of nodes for distributed training, default 1")
-    parser.add_argument("--ngpus_per_node", default=2, type=int,
+    parser.add_argument("--ngpus_per_node", default=4, type=int,
                               help="number of GPUs per node for distributed training, default 2")
     parser.add_argument("--dist-url", default="tcp://127.0.0.1:12315", type=str,
                               help="url used to set up distributed training")

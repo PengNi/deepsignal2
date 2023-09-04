@@ -4,9 +4,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import torch.autograd as autograd
+import math
 import warnings
 warnings.simplefilter('ignore')
-from utils import constants
+from deepsignal3.utils import constants
 use_cuda = torch.cuda.is_available()
 
 
@@ -186,6 +187,39 @@ class ReservoirNet(nn.Module):
         self.reg = 1e-12
         self.one = torch.ones([1, 1])
 
+
+class PositionalEncoding(nn.Module):
+
+    def __init__(self, d_model, dropout, max_len=5000):
+        super(PositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+
+        # 初始化Shape为(max_len, d_model)的PE
+        pe = torch.zeros(max_len, d_model)
+        # 初始化一个tensor [[0, 1, 2, 3, ...]]
+        position = torch.arange(0, max_len).unsqueeze(1)
+        # 这里就是sin和cos括号中的内容，通过e和ln进行了变换
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2) * -(math.log(10000.0) / d_model)
+        )
+        # 计算PE(pos, 2i)
+        pe[:, 0::2] = torch.sin(position * div_term)
+        # 计算PE(pos, 2i+1)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        # 为了方便计算，在最外面在unsqueeze出一个batch
+        pe = pe.unsqueeze(0)
+        # 如果一个参数不参与梯度下降，但又希望保存model的时候将其保存下来
+        # 这个时候就可以用register_buffer
+        self.register_buffer("pe", pe)
+
+    def forward(self, x):
+        """
+        x 为embedding后的inputs，例如(1,7, 128)，batch size为1,7个单词，单词维度为128
+        """
+        # 将x和positional encoding相加。
+        x = x + self.pe[:, : x.size(1)].requires_grad_(False)
+        return self.dropout(x)
+
 class CapsNet(nn.Module):
     def __init__(self, 
                  primary_conv=5,
@@ -194,25 +228,38 @@ class CapsNet(nn.Module):
                  primary_kernel_size=3,
                  num_capsules=2, 
                  cap_output_num=6, 
-                 vocab_size=16,
+                 vocab_size=17,
                  embedding_size=16, 
                  dropout_rate=0.5, 
                  num_layers=3,
                  hlstm_size=128,
-                 device=0):
+                 device=0,
+                 mode='lstm'):
         super(CapsNet, self).__init__()
         self.device=device
         self.embed = nn.Embedding(vocab_size, embedding_size)
         self.hlstm_size=hlstm_size
         self.num_layers=num_layers
         self.sig_len = constants.SIG_LEN
-        self.lstm_seq = nn.LSTM(self.sig_len, self.hlstm_size, self.num_layers,
-                            dropout=dropout_rate, batch_first=True, bidirectional=True)
-        self.lstm_sig = nn.LSTM(self.sig_len, self.hlstm_size, self.num_layers,
-                            dropout=dropout_rate, batch_first=True, bidirectional=True)
-        self.primary_layer = PrimaryCapsuleLayer(conv_in=constants.KMER_LEN*2,
+        self.mode=mode
+        # 定义位置编码器
+        if self.mode=='transformer':
+            self.positional_encoding = PositionalEncoding(embedding_size, dropout=0)
+            self.transformer = nn.Transformer(d_model=embedding_size, num_encoder_layers=6, 
+                        num_decoder_layers=6, dim_feedforward=self.hlstm_size, batch_first=True)
+            self.transformer_fc = nn.Linear(self.sig_len, hlstm_size*2)
+            self.primary_layer = PrimaryCapsuleLayer(conv_in=constants.KMER_LEN,
                                                  conv_out=primary_conv_out,conv_num=primary_conv,
                                                  kernel_size=primary_kernel_size)
+        elif self.mode=='lstm':
+            self.lstm_seq = nn.LSTM(self.sig_len, self.hlstm_size, self.num_layers,
+                            dropout=dropout_rate, batch_first=True, bidirectional=True)
+            self.lstm_sig = nn.LSTM(self.sig_len, self.hlstm_size, self.num_layers,
+                            dropout=dropout_rate, batch_first=True, bidirectional=True)
+            self.primary_layer = PrimaryCapsuleLayer(conv_in=constants.KMER_LEN*2,
+                                                 conv_out=primary_conv_out,conv_num=primary_conv,
+                                                 kernel_size=primary_kernel_size)
+        
         self.caps_layer = CapsLayer(num_capsules=num_capsules,in_caps=primary_conv_out*primary_conv,
                                     in_channels=2*hlstm_size,out_channels=cap_output_num,device=self.device)
         self.dropout1 = nn.Dropout(p=dropout_rate)
@@ -231,6 +278,14 @@ class CapsNet(nn.Module):
             h0 = h0.cuda(self.device)
             c0 = c0.cuda(self.device)
         return h0, c0
+    @staticmethod
+    def get_key_padding_mask(tokens):
+        """
+        用于key_padding_mask
+        """
+        key_padding_mask = torch.zeros(tokens.size())
+        key_padding_mask[tokens == 2] = -torch.inf
+        return key_padding_mask
 
     def forward(self, seq, sig):
         seq_emb = self.embed(seq.long())#bacth_size, 17, 16
@@ -240,16 +295,31 @@ class CapsNet(nn.Module):
         #print('sig shape: {}'.format(sig.shape))
         #batch_size=seq_emb.shape[0]
         #print(batch_size)
-        seq_emb,_=self.lstm_seq(seq_emb.to(torch.float32),self.init_hidden(seq_emb.size(0), self.num_layers,self.hlstm_size))
-        sig,_=self.lstm_sig(sig.to(torch.float32),self.init_hidden(sig.size(0), self.num_layers,self.hlstm_size))
-        #batch_size,sig_len,2*self.hlstm_size
-        #print('seq_emb shape: {}'.format(seq_emb.shape))
-        #print('sig shape: {}'.format(sig.shape))
-        # to(torch.float32) solve RuntimeError:expected scalar type Double but found Float
-        x = torch.cat((seq_emb, sig), dim=1).to(torch.float32)
-        #bach_size,kmer_len*2,self.hlstm_size*num_directions
+        if self.mode=='transformer':
+            sig_mask = nn.Transformer.generate_square_subsequent_mask(sig.size()[-2]).cuda(self.device)
+            seq_key_padding_mask = None#CapsNet.get_key_padding_mask(seq).cuda(self.device)
+            sig_key_padding_mask = None#CapsNet.get_key_padding_mask(sig).cuda(self.device)
+            seq_emb = self.positional_encoding(seq_emb.to(torch.float32)).cuda(self.device)
+            sig_emb = self.positional_encoding(sig.to(torch.float32)).cuda(self.device)
+            #print('seq_emb shape: {}'.format(seq_emb.shape))
+            #print('sig_emb shape: {}'.format(sig_emb.shape))
+            x = self.transformer(seq_emb, sig_emb,
+                               tgt_mask=sig_mask,
+                               src_key_padding_mask=seq_key_padding_mask,
+                               tgt_key_padding_mask=sig_key_padding_mask).cuda(self.device)
+            x = self.transformer_fc(x)
+        #print('transformer shape: {}'.format(x.shape))
+        elif self.mode=='lstm':
+            seq_emb,_=self.lstm_seq(seq_emb.to(torch.float32),self.init_hidden(seq_emb.size(0), self.num_layers,self.hlstm_size))
+            sig_emb,_=self.lstm_sig(sig.to(torch.float32),self.init_hidden(sig.size(0), self.num_layers,self.hlstm_size))
+            #batch_size,sig_len,2*self.hlstm_size
+            #print('seq_emb shape: {}'.format(seq_emb.shape))
+            #print('sig shape: {}'.format(sig.shape))
+            # to(torch.float32) solve RuntimeError:expected scalar type Double but found Float
+            x = torch.cat((seq_emb, sig_emb), dim=1).to(torch.float32)
+            #bach_size,kmer_len*2,self.hlstm_size*num_directions
 
-        #x,_ = self.lstm_comb(x,self.init_hidden(x.size(0), self.num_layers,self.hlstm_size))
+            #x,_ = self.lstm_comb(x,self.init_hidden(x.size(0), self.num_layers,self.hlstm_size))
         
         # seq = self.primary_layer(seq)
         # seq = self.caps_layer(seq)
@@ -300,3 +370,5 @@ class CapsuleLoss(nn.Module):
         # margin_loss = labels * left + 0.5 * (1.0 - labels) * right
         # margin_loss = margin_loss.sum()
         return self.loss(classes, labels)
+
+
