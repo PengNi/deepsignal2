@@ -29,7 +29,7 @@ import logging
 logger = logging.getLogger("train_logger")
 logger.setLevel(logging.DEBUG)
 processdata_log = logging.FileHandler(
-    '../log/extract.log', "a", encoding="utf-8"
+    './log/extract.log', "a", encoding="utf-8"
 )
 formatter = logging.Formatter(
     "%(asctime)s - %(filename)s - line:%(lineno)d - %(levelname)s - %(message)s -%(process)s"

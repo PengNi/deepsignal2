@@ -120,9 +120,11 @@ def _call_mods(features_batch, model, args, device=0):
     labels = np.reshape(labels, (len(labels)))
 
     pred_str = []
-    accuracys = []
-    precisions=[]
-    recalls=[]
+    #accuracys = []
+    #precisions=[]
+    #recalls=[]
+    prediction=[]
+    label=[]
     batch_num = 0
     for i in np.arange(0, len(sampleinfo), args.batch_size):
         batch_s, batch_e = i, i + args.batch_size
@@ -148,16 +150,17 @@ def _call_mods(features_batch, model, args, device=0):
 
             predicted = vpredicted.numpy()
             logits = vlogits.data.numpy()
-
-            acc_batch = metrics.accuracy_score(
-                y_true=b_labels, y_pred=predicted)
-            precision_batch = metrics.precision_score(
-                y_true=b_labels, y_pred=predicted
-            )
-            recall_batch = metrics.recall_score(y_true=b_labels, y_pred=predicted)
-            accuracys.append(acc_batch)
-            precisions.append(precision_batch)
-            recalls.append(recall_batch)
+            prediction.append(predicted)
+            label.append(b_labels)
+            #acc_batch = metrics.accuracy_score(
+            #    y_true=b_labels, y_pred=predicted)
+            #precision_batch = metrics.precision_score(
+            #    y_true=b_labels, y_pred=predicted
+            #)
+            #recall_batch = metrics.recall_score(y_true=b_labels, y_pred=predicted)
+            #accuracys.append(acc_batch)
+            #precisions.append(precision_batch)
+            #recalls.append(recall_batch)
 
             for idx in range(len(b_sampleinfo)):
                 # chromosome, pos, strand, pos_in_strand, read_name, read_strand, prob_0, prob_1, called_label, seq
@@ -168,11 +171,11 @@ def _call_mods(features_batch, model, args, device=0):
                                            str(prob_1_norm), str(predicted[idx]),
                                            ''.join([code2base_dna[x] for x in b_kmers[idx]])]))
             batch_num += 1
-    accuracy = np.mean(accuracys) if len(accuracys) > 0 else 0
-    precision = np.mean(precisions) if len(precisions) > 0 else 0
-    recall = np.mean(recalls) if len(recalls) > 0 else 0
+    #accuracy = np.mean(accuracys) if len(accuracys) > 0 else 0
+    #precision = np.mean(precisions) if len(precisions) > 0 else 0
+    #recall = np.mean(recalls) if len(recalls) > 0 else 0
 
-    return pred_str, accuracy, precision, recall, batch_num
+    return pred_str,  prediction, label, batch_num
 
 
 def _call_mods_q(metric_q,model_path, features_batch_q, pred_str_q, success_file, args, device=0):
@@ -214,7 +217,7 @@ def _call_mods_q(metric_q,model_path, features_batch_q, pred_str_q, success_file
             # open(success_file, 'w').close()
             break
 
-        pred_str, accuracy, precision, recall, batch_num = _call_mods(features_batch, model, args, device)
+        pred_str, prediction, label, batch_num = _call_mods(features_batch, model, args, device)
 
         pred_str_q.put(pred_str)
         while pred_str_q.qsize() > queue_size_border:
@@ -225,7 +228,7 @@ def _call_mods_q(metric_q,model_path, features_batch_q, pred_str_q, success_file
         #accuracy_list.append(accuracy)
         #precision_list.append(precision)
         #recall_list.append(recall)
-        metric_q.put([accuracy, precision, recall])
+        metric_q.put([prediction, label])
         batch_num_total += batch_num
     # print('total accuracy in process {}: {}'.format(os.getpid(), np.mean(accuracy_list)))
     #accuracy = np.mean(accuracy_list) if len(accuracy_list) > 0 else 0
@@ -619,17 +622,27 @@ def call_mods(args):
 
     if os.path.exists(success_file):
         os.remove(success_file)
-    accuracy=[]
-    precision=[]
-    recall=[]
+    #accuracy=[]
+    #precision=[]
+    #recall=[]
+    pre_list=[]
+    label_list=[]
     while not metric_q.empty():
-        acc,pre,rec=metric_q.get()
-        accuracy.append(acc)
-        precision.append(pre)
-        recall.append(rec)
-    accuracy = np.mean(accuracy) if len(accuracy) > 0 else 0
-    precision = np.mean(precision) if len(precision) > 0 else 0
-    recall = np.mean(recall) if len(recall) > 0 else 0
+        prediction, label=metric_q.get()
+        pre_list.append(precision)
+        label_list.append(label_list)
+        #accuracy.append(acc)
+        #precision.append(pre)
+        #recall.append(rec)
+    accuracy = metrics.accuracy_score(
+                y_true=label_list, y_pred=pre_list)
+    precision = metrics.precision_score(
+                y_true=label_list, y_pred=pre_list
+            )
+    recall = metrics.recall_score(y_true=label_list, y_pred=pre_list)
+    #accuracy = np.mean(accuracy) if len(accuracy) > 0 else 0
+    #precision = np.mean(precision) if len(precision) > 0 else 0
+    #recall = np.mean(recall) if len(recall) > 0 else 0
     print( "Accuracy: {:.4f}, Precision: {:.4f}, Recall: {:.4f}, ".format(accuracy,precision,recall))
     print("[main]call_mods costs %.2f seconds.." % (time.time() - start))
 

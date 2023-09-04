@@ -4,8 +4,8 @@ from __future__ import absolute_import
 import sys
 import argparse
 
-from utils.process_utils import str2bool
-from utils.process_utils import display_args
+from deepsignal2.utils.process_utils import str2bool
+from deepsignal2.utils.process_utils import display_args
 
 
 def main_extraction(args):

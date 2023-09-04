@@ -25,18 +25,18 @@ except RuntimeError:
 from torch.multiprocessing import Queue
 import time
 
-from .models import ModelBiLSTM
-from .utils.process_utils import base2code_dna
-from .utils.process_utils import code2base_dna
-from .utils.process_utils import str2bool
-from .utils.process_utils import display_args
-from .utils.process_utils import nproc_to_call_mods_in_cpu_mode
+from deepsignal2.models import ModelBiLSTM
+from deepsignal2.utils.process_utils import base2code_dna
+from deepsignal2.utils.process_utils import code2base_dna
+from deepsignal2.utils.process_utils import str2bool
+from deepsignal2.utils.process_utils import display_args
+from deepsignal2.utils.process_utils import nproc_to_call_mods_in_cpu_mode
 
-from .extract_features import _extract_features
-from .extract_features import _extract_preprocess
+from deepsignal2.extract_features import _extract_features
+from deepsignal2.extract_features import _extract_preprocess
 
-from .utils.constants_torch import FloatTensor
-from .utils.constants_torch import use_cuda
+from deepsignal2.utils.constants_torch import FloatTensor
+from deepsignal2.utils.constants_torch import use_cuda
 
 import uuid
 
