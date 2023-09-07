@@ -62,7 +62,7 @@ def parse_a_line2(line):
     #base_means = np.array([float(x) for x in words[7].split(",")])
     #base_stds = np.array([float(x) for x in words[8].split(",")])
     #base_signal_lens = np.array([int(x) for x in words[9].split(",")])
-    k_signals = np.array([[float(y) for y in x.split(",")] for x in words[10].split(";")])
+    k_signals = np.array([[float(y) for y in x.split(",")][3:-3] for x in words[10].split(";")])
     label = int(words[11])
     return kmer, k_signals, label
 

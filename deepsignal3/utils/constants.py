@@ -1,3 +1,4 @@
+#When modifying a constant (variable) in one file (A.py) and another file (B.py), if you import B.py and access the constant in C.py, the value returned is the value before the modification, because the Python module caches its content after the first import and does not reload. This means that if you modify the constants in B.py in A.py, but C.py has already imported B.py, C.py will still use the values from the initial import of B.py unless you re import B.py
 iupac_alphabets = {
     "A": ["A"],
     "T": ["T"],
@@ -74,5 +75,5 @@ FEATURE_REF_NAME = 4
 FEATURE_REF_START = 5
 FEATURE_REF_STRAND = 6
 
-SIG_LEN=16
+SIG_LEN=10
 KMER_LEN=17

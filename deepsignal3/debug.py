@@ -69,20 +69,34 @@ def prepare_data(filename):
 #prepare_data('/home/xiaoyifu/data/HG002/R9.4/samples_CG.hc_poses.r30m.tsv')
 
 def statistic_R9(filename):
+    k_max=0
+    k_sitenum=0
     max=0
-    mean=0
     sitenum=0
     total=0
+    all_0=0
     with open(filename, "r") as fr:
         line = fr.readline()
         while line:
             kmer, k_signals, label=parse_a_line2(line)
-            sitenum+=1
-            count = sum(1 for row in k_signals for element in row if element == 0)
-            total+=count
-            if count>max:
-                max=count
+            k_sitenum+=1
+            k_count = sum(1 for row in k_signals for element in row if element == 0)
+            for base_signal in k_signals:
+                count= sum(1 for element in base_signal if element == 0)
+                sitenum+=1
+                if count>max:
+                    max=count
+                if count==16:
+                    all_0+=1
+            
+            #signal supplement 0 on read max: 252, mean: 134.45843796414823, total:120582865
+            #signal supplement 0 on base max: 16, mean: 7.9093198802440146,all supplement: 1088
+            total+=k_count
+            if k_count>k_max:
+                k_max=k_count
             line = fr.readline()
+    k_mean=total/k_sitenum
     mean=total/sitenum
-    print('signal supplement 0 max: {}, mean: {}, total:{}'.format(max,mean,total))
-statistic_R9('/home/xiaoyifu/data/HG002/R9.4/fast5s.CG.features.tsv')
+    print('signal supplement 0 on read max: {}, mean: {}, total:{}'.format(k_max,k_mean,total))
+    print('signal supplement 0 on base max: {}, mean: {},all supplement: {}'.format(max,mean,all_0))
+#statistic_R9('/home/xiaoyifu/data/HG002/R9.4/fast5s.CG.features.tsv')
