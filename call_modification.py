@@ -40,7 +40,8 @@ from deepsignal2.utils.constants_torch import use_cuda
 
 import uuid
 
-from deepsignal3.model import CapsNet
+from deepsignal3.model import CapsNet,CapsEmbeddingNet
+from deepsignal3.utils import constants
 from tqdm import tqdm
 
 # add this export temporarily
@@ -60,7 +61,8 @@ def count_line_num(sl_filepath, fheader=False):
     # print('done count the lines of file {}'.format(sl_filepath))
     return count
 
-def _read_features_file(features_file, features_batch_q, f5_batch_size=20):
+def _read_features_file(features_file, features_batch_q,args):
+    f5_batch_size=args.f5_batch_size
     print("read_features process-{} starts".format(os.getpid()))
     r_num, b_num = 0, 0
     with open(features_file, "r") as rf:
@@ -77,7 +79,10 @@ def _read_features_file(features_file, features_batch_q, f5_batch_size=20):
         readid_pre = words[4]
 
         sampleinfo.append("\t".join(words[0:6]))
-        kmers.append([base2code_dna[x] for x in words[6]])
+        if args.mode==4:
+            kmers.append([[constants.base2code_dna[x]]*constants.SIG_LEN for x in words[6]])
+        else:
+            kmers.append([base2code_dna[x] for x in words[6]])
         base_means.append([float(x) for x in words[7].split(",")])
         base_stds.append([float(x) for x in words[8].split(",")])
         base_signal_lens.append([int(x) for x in words[9].split(",")])
@@ -105,7 +110,10 @@ def _read_features_file(features_file, features_batch_q, f5_batch_size=20):
                     b_num += 1
 
             sampleinfo.append("\t".join(words[0:6]))
-            kmers.append([base2code_dna[x] for x in words[6]])
+            if args.mode==4:
+                kmers.append([[constants.base2code_dna[x]]*constants.SIG_LEN for x in words[6]])
+            else:
+                kmers.append([base2code_dna[x] for x in words[6]])
             base_means.append([float(x) for x in words[7].split(",")])
             base_stds.append([float(x) for x in words[8].split(",")])
             base_signal_lens.append([int(x) for x in words[9].split(",")])
@@ -125,8 +133,10 @@ def _read_features_file(features_file, features_batch_q, f5_batch_size=20):
 def _call_mods(features_batch, model, args, device=0):
     # features_batch: 1. if from _read_features_file(), has 1 * args.batch_size samples (not any more, modified)
     # --------------: 2. if from _read_features_from_fast5s(), has uncertain number of samples
+    
     sampleinfo, kmers, base_means, base_stds, base_signal_lens, \
         k_signals, labels = features_batch
+    
     labels = np.reshape(labels, (len(labels)))
 
     pred_str = []
@@ -153,6 +163,10 @@ def _call_mods(features_batch, model, args, device=0):
                                       FloatTensor(b_base_signal_lens, device),
                                       FloatTensor(b_k_signals, device))
             elif args.mode==3:
+                
+                voutputs, vlogits = model(FloatTensor(b_kmers, device), FloatTensor(b_k_signals, device))
+            elif args.mode==4:
+                #b_kmers=np.array([[constants.base2code_dna[y]]*constants.SIG_LEN for x in b_kmers for y in x ])
                 voutputs, vlogits = model(FloatTensor(b_kmers, device), FloatTensor(b_k_signals, device))
             _, vpredicted = torch.max(vlogits.data, 1)
             if use_cuda:
@@ -180,9 +194,15 @@ def _call_mods(features_batch, model, args, device=0):
                 prob_0, prob_1 = logits[idx][0], logits[idx][1]
                 prob_0_norm = round(prob_0 / (prob_0 + prob_1), 6)
                 prob_1_norm = round(1 - prob_0_norm, 6)
-                pred_str.append("\t".join([b_sampleinfo[idx], str(prob_0_norm),
+                if args.mode ==4:
+                    pred_str.append("\t".join([b_sampleinfo[idx], str(prob_0_norm),
+                                           str(prob_1_norm), str(predicted[idx]),
+                                           ''.join([code2base_dna[y] for x in b_kmers[idx] for y in x])]))
+                else:
+                    pred_str.append("\t".join([b_sampleinfo[idx], str(prob_0_norm),
                                            str(prob_1_norm), str(predicted[idx]),
                                            ''.join([code2base_dna[x] for x in b_kmers[idx]])]))
+                
             batch_num += 1
     #accuracy = np.mean(accuracys) if len(accuracys) > 0 else 0
     #precision = np.mean(precisions) if len(precisions) > 0 else 0
@@ -199,6 +219,8 @@ def _call_mods_q(metric_q,model_path, features_batch_q, pred_str_q, success_file
                         args.n_vocab, args.n_embed, str2bool(args.is_base), str2bool(args.is_signallen),
                         args.model_type, device=device)
     elif args.mode==3:    
+        model = CapsEmbeddingNet(device=device)
+    elif args.mode==4:    
         model = CapsNet(device=device)
     para_dict = torch.load(model_path, map_location=torch.device('cpu'))
     # para_dict = torch.load(model_path, map_location=torch.device(device))
@@ -602,7 +624,7 @@ def call_mods(args):
         # features_batch_q = mp.Queue()
         features_batch_q = Queue()
         p_rf = mp.Process(target=_read_features_file, args=(input_path, features_batch_q,
-                                                            args.f5_batch_size))
+                                                            args))
         p_rf.daemon = True
         p_rf.start()
 
