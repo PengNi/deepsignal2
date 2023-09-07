@@ -31,4 +31,39 @@ def statistics(filename):
         total_data = len(f.readlines())
     print(str(filename)+' has {} line'.format(total_data))#30000000
 
-statistics('/home/xiaoyifu/data/HG002/R9.4/samples_CG.hc_poses.r30m.tsv')
+#statistics('/home/xiaoyifu/data/HG002/R9.4/samples_CG.hc_poses.r30m.tsv')
+import sys
+import os
+print(os.getcwd())
+
+sys.path.append('/home/xiaoyifu/methylation/deepsignal/')
+import numpy as np
+from deepsignal3.utils import constants
+def parse_a_line2(line):
+    words = line.strip().split("\t")
+
+    #sampleinfo = "\t".join(words[0:6])
+
+    kmer = np.array([constants.base2code_dna[x] for x in words[6]])
+    #base_means = np.array([float(x) for x in words[7].split(",")])
+    #base_stds = np.array([float(x) for x in words[8].split(",")])
+    #base_signal_lens = np.array([int(x) for x in words[9].split(",")])
+    k_signals = np.array([[float(y) for y in x.split(",")] for x in words[10].split(";")])
+    label = int(words[11])
+    return kmer, k_signals, label
+
+def prepare_data(filename):
+    pos=0
+    neg=0
+    with open(filename, "r") as fr:
+        line = fr.readline()
+        while line:
+            kmer, k_signals, label=parse_a_line2(line)
+            if label==1:
+                pos+=1
+            elif label==0:
+                neg+=1
+            line = fr.readline()
+    print('pos {} : neg {}'.format(pos,neg))#pos 896804 : neg 0
+#prepare_data('/home/xiaoyifu/data/HG002/R9.4/fast5s.CG.features.tsv')
+prepare_data('/home/xiaoyifu/data/HG002/R9.4/samples_CG.hc_poses.r30m.tsv')

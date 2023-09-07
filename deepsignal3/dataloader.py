@@ -58,7 +58,7 @@ def parse_a_line2(line):
 
     #sampleinfo = "\t".join(words[0:6])
 
-    kmer = np.array([constants.base2code_dna[x] for x in words[6]])
+    kmer = np.array([constants.base2code_dna[x]*constants.SIG_LEN for x in words[6]])
     #base_means = np.array([float(x) for x in words[7].split(",")])
     #base_stds = np.array([float(x) for x in words[8].split(",")])
     #base_signal_lens = np.array([int(x) for x in words[9].split(",")])

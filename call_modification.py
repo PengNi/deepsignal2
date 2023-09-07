@@ -25,20 +25,23 @@ except RuntimeError:
 from torch.multiprocessing import Queue
 import time
 
-from models import ModelBiLSTM
-from utils.process_utils import base2code_dna
-from utils.process_utils import code2base_dna
-from utils.process_utils import str2bool
-from utils.process_utils import display_args
-from utils.process_utils import nproc_to_call_mods_in_cpu_mode
+from deepsignal2.models import ModelBiLSTM
+from deepsignal2.utils.process_utils import base2code_dna
+from deepsignal2.utils.process_utils import code2base_dna
+from deepsignal2.utils.process_utils import str2bool
+from deepsignal2.utils.process_utils import display_args
+from deepsignal2.utils.process_utils import nproc_to_call_mods_in_cpu_mode
 
-from extract_features import _extract_features
-from extract_features import _extract_preprocess
+from deepsignal2.extract_features import _extract_features
+from deepsignal2.extract_features import _extract_preprocess
 
-from utils.constants_torch import FloatTensor
-from utils.constants_torch import use_cuda
+from deepsignal2.utils.constants_torch import FloatTensor
+from deepsignal2.utils.constants_torch import use_cuda
 
 import uuid
+
+from deepsignal3.model import CapsNet
+from tqdm import tqdm
 
 # add this export temporarily
 os.environ['MKL_THREADING_LAYER'] = 'GNU'
@@ -47,6 +50,15 @@ queue_size_border_f5batch = 100
 queue_size_border = 1000
 time_wait = 1
 
+def count_line_num(sl_filepath, fheader=False):
+    count = 0
+    with open(sl_filepath, 'r') as rf:
+        if fheader:
+            next(rf)
+        for _ in rf:
+            count += 1
+    # print('done count the lines of file {}'.format(sl_filepath))
+    return count
 
 def _read_features_file(features_file, features_batch_q, f5_batch_size=20):
     print("read_features process-{} starts".format(os.getpid()))
@@ -72,7 +84,7 @@ def _read_features_file(features_file, features_batch_q, f5_batch_size=20):
         k_signals.append([[float(y) for y in x.split(",")] for x in words[10].split(";")])
         labels.append(int(words[11]))
 
-        for line in rf:
+        for line in tqdm(rf,total=count_line_num(features_file),desc="read features"):
             words = line.strip().split("\t")
             readidtmp = words[4]
             if readidtmp != readid_pre:
@@ -110,7 +122,7 @@ def _read_features_file(features_file, features_batch_q, f5_batch_size=20):
                                                                                        f5_batch_size))
 
 
-def _call_mods(features_batch, model, batch_size, device=0):
+def _call_mods(features_batch, model, args, device=0):
     # features_batch: 1. if from _read_features_file(), has 1 * args.batch_size samples (not any more, modified)
     # --------------: 2. if from _read_features_from_fast5s(), has uncertain number of samples
     sampleinfo, kmers, base_means, base_stds, base_signal_lens, \
@@ -118,12 +130,15 @@ def _call_mods(features_batch, model, batch_size, device=0):
     labels = np.reshape(labels, (len(labels)))
 
     pred_str = []
-    accuracys = []
-    precisions=[]
-    recalls=[]
+    #accuracys = []
+    #precisions=[]
+    #recalls=[]
+    #prediction=[]
+    #label=[]
     batch_num = 0
-    for i in np.arange(0, len(sampleinfo), batch_size):
-        batch_s, batch_e = i, i + batch_size
+    #tqdm(np.arange(0, len(sampleinfo), args.batch_size),desc="call mods",total=len(sampleinfo)//args.batch_size+1):
+    for i in np.arange(0, len(sampleinfo), args.batch_size):
+        batch_s, batch_e = i, i + args.batch_size
         b_sampleinfo = sampleinfo[batch_s:batch_e]
         b_kmers = kmers[batch_s:batch_e]
         b_base_means = base_means[batch_s:batch_e]
@@ -132,10 +147,13 @@ def _call_mods(features_batch, model, batch_size, device=0):
         b_k_signals = k_signals[batch_s:batch_e]
         b_labels = labels[batch_s:batch_e]
         if len(b_sampleinfo) > 0:
-            voutputs, vlogits = model(FloatTensor(b_kmers, device), FloatTensor(b_base_means, device),
+            if args.mode==2:
+                voutputs, vlogits = model(FloatTensor(b_kmers, device), FloatTensor(b_base_means, device),
                                       FloatTensor(b_base_stds, device),
                                       FloatTensor(b_base_signal_lens, device),
                                       FloatTensor(b_k_signals, device))
+            elif args.mode==3:
+                voutputs, vlogits = model(FloatTensor(b_kmers, device), FloatTensor(b_k_signals, device))
             _, vpredicted = torch.max(vlogits.data, 1)
             if use_cuda:
                 vlogits = vlogits.cpu()
@@ -143,16 +161,19 @@ def _call_mods(features_batch, model, batch_size, device=0):
 
             predicted = vpredicted.numpy()
             logits = vlogits.data.numpy()
-
-            acc_batch = metrics.accuracy_score(
-                y_true=b_labels, y_pred=predicted)
-            precision_batch = metrics.precision_score(
-                y_true=b_labels, y_pred=predicted
-            )
-            recall_batch = metrics.recall_score(y_true=b_labels, y_pred=predicted)
-            accuracys.append(acc_batch)
-            precisions.append(precision_batch)
-            recalls.append(recall_batch)
+            #for p in predicted:
+            #    prediction.append(p)
+            #for l in b_labels:
+            #    label.append(l)
+            #acc_batch = metrics.accuracy_score(
+            #    y_true=b_labels, y_pred=predicted)
+            #precision_batch = metrics.precision_score(
+            #    y_true=b_labels, y_pred=predicted
+            #)
+            #recall_batch = metrics.recall_score(y_true=b_labels, y_pred=predicted)
+            #accuracys.append(acc_batch)
+            #precisions.append(precision_batch)
+            #recalls.append(recall_batch)
 
             for idx in range(len(b_sampleinfo)):
                 # chromosome, pos, strand, pos_in_strand, read_name, read_strand, prob_0, prob_1, called_label, seq
@@ -163,20 +184,22 @@ def _call_mods(features_batch, model, batch_size, device=0):
                                            str(prob_1_norm), str(predicted[idx]),
                                            ''.join([code2base_dna[x] for x in b_kmers[idx]])]))
             batch_num += 1
-    accuracy = np.mean(accuracys) if len(accuracys) > 0 else 0
-    precision = np.mean(precisions) if len(precisions) > 0 else 0
-    recall = np.mean(recalls) if len(recalls) > 0 else 0
+    #accuracy = np.mean(accuracys) if len(accuracys) > 0 else 0
+    #precision = np.mean(precisions) if len(precisions) > 0 else 0
+    #recall = np.mean(recalls) if len(recalls) > 0 else 0
 
-    return pred_str, accuracy, precision, recall, batch_num
+    return pred_str, batch_num
 
 
-def _call_mods_q(model_path, features_batch_q, pred_str_q, success_file, args, device=0):
+def _call_mods_q(metric_q,model_path, features_batch_q, pred_str_q, success_file, args, device=0):
     print('call_mods process-{} starts'.format(os.getpid()))
-    model = ModelBiLSTM(args.seq_len, args.signal_len, args.layernum1, args.layernum2, args.class_num,
+    if args.mode==2:
+        model = ModelBiLSTM(args.seq_len, args.signal_len, args.layernum1, args.layernum2, args.class_num,
                         args.dropout_rate, args.hid_rnn,
                         args.n_vocab, args.n_embed, str2bool(args.is_base), str2bool(args.is_signallen),
                         args.model_type, device=device)
-
+    elif args.mode==3:    
+        model = CapsNet(device=device)
     para_dict = torch.load(model_path, map_location=torch.device('cpu'))
     # para_dict = torch.load(model_path, map_location=torch.device(device))
     model_dict = model.state_dict()
@@ -188,9 +211,9 @@ def _call_mods_q(model_path, features_batch_q, pred_str_q, success_file, args, d
         model = model.cuda(device)
     model.eval()
 
-    accuracy_list = []
-    precision_list = []
-    recall_list = []
+    #accuracy_list = []
+    #precision_list = []
+    #recall_list = []
     batch_num_total = 0
     while True:
         # if os.path.exists(success_file):
@@ -207,25 +230,33 @@ def _call_mods_q(model_path, features_batch_q, pred_str_q, success_file, args, d
             # open(success_file, 'w').close()
             break
 
-        pred_str, accuracy, precision, recall, batch_num = _call_mods(features_batch, model, args.batch_size, device)
+        pred_str, batch_num = _call_mods(features_batch, model, args, device)
 
         pred_str_q.put(pred_str)
         while pred_str_q.qsize() > queue_size_border:
             time.sleep(time_wait)
+        #while metric_q.qsize() > queue_size_border:
+        #    time.sleep(time_wait)
         # for debug
         # print("call_mods process-{} reads 1 batch, features_batch_q:{}, "
         #       "pred_str_q: {}".format(os.getpid(), features_batch_q.qsize(), pred_str_q.qsize()))
-        accuracy_list.append(accuracy)
-        precision_list.append(precision)
-        recall_list.append(recall)
+        #accuracy_list.append(accuracy)
+        #precision_list.append(precision)
+        #recall_list.append(recall)
+        #metric_q.put([prediction, label])
         batch_num_total += batch_num
     # print('total accuracy in process {}: {}'.format(os.getpid(), np.mean(accuracy_list)))
-    accuracy = np.mean(accuracy_list) if len(accuracy_list) > 0 else 0
-    precision = np.mean(precision_list) if len(precision_list) > 0 else 0
-    recall = np.mean(recall_list) if len(recall_list) > 0 else 0
-    print( "Accuracy: {:.4f}, Precision: {:.4f}, Recall: {:.4f}, ".format(accuracy,precision,recall))
+    #accuracy = np.mean(accuracy_list) if len(accuracy_list) > 0 else 0
+    #precision = np.mean(precision_list) if len(precision_list) > 0 else 0
+    #recall = np.mean(recall_list) if len(recall_list) > 0 else 0
+    #print( "Accuracy: {:.4f}, Precision: {:.4f}, Recall: {:.4f}, ".format(accuracy,precision,recall))
+    #print('now queue have {} batch prediction and label'.format(metric_q.qsize()))
     print('call_mods process-{} ending, proceed {} feature-batches({})'.format(os.getpid(), batch_num_total,
                                                                                args.batch_size))
+    #metric_q.cancel_join_thread()
+    #pred_str_q.cancel_join_thread()
+    #time.sleep(time_wait*10)
+    #pred_str_q.put("kill")
 
 
 def _write_predstr_to_file(write_fp, predstr_q):
@@ -298,7 +329,7 @@ def _read_features_fast5s_q(fast5s_q, features_batch_q, errornum_q,
     print("read_fast5 process-{} ending, proceed {} fast5s".format(os.getpid(), f5_num))
 
 
-def _call_mods_from_fast5s_gpu(motif_seqs, chrom2len, fast5s_q, len_fast5s, positions,
+def _call_mods_from_fast5s_gpu(metric_q,motif_seqs, chrom2len, fast5s_q, len_fast5s, positions,
                                model_path, success_file,
                                args):
     # features_batch_q = mp.Queue()
@@ -331,7 +362,7 @@ def _call_mods_from_fast5s_gpu(motif_seqs, chrom2len, fast5s_q, len_fast5s, posi
     gpulist = _get_gpus()
     gpuindex = 0
     for _ in range(nproc_gpu):
-        p_call_mods_gpu = mp.Process(target=_call_mods_q, args=(model_path, features_batch_q, pred_str_q,
+        p_call_mods_gpu = mp.Process(target=_call_mods_q, args=(metric_q,model_path, features_batch_q, pred_str_q,
                                                                 success_file, args, gpulist[gpuindex]))
         gpuindex += 1
         p_call_mods_gpu.daemon = True
@@ -366,7 +397,7 @@ def _call_mods_from_fast5s_gpu(motif_seqs, chrom2len, fast5s_q, len_fast5s, posi
     print("%d of %d fast5 files failed.." % (errornum_sum, len_fast5s))
 
 
-def _call_mods_from_fast5s_cpu2(motif_seqs, chrom2len, fast5s_q, len_fast5s, positions, model_path,
+def _call_mods_from_fast5s_cpu2(metric_q,motif_seqs, chrom2len, fast5s_q, len_fast5s, positions, model_path,
                                 success_file, args):
     # features_batch_q = mp.Queue()
     # errornum_q = mp.Queue()
@@ -393,7 +424,7 @@ def _call_mods_from_fast5s_cpu2(motif_seqs, chrom2len, fast5s_q, len_fast5s, pos
 
     call_mods_cpu_procs = []
     for _ in range(nproc_call_mods):
-        p_call_mods_cpu = mp.Process(target=_call_mods_q, args=(model_path, features_batch_q, pred_str_q,
+        p_call_mods_cpu = mp.Process(target=_call_mods_q, args=(metric_q,model_path, features_batch_q, pred_str_q,
                                                                 success_file, args))
         p_call_mods_cpu.daemon = True
         p_call_mods_cpu.start()
@@ -526,11 +557,23 @@ def _get_gpus():
         gpulist = [0]
     return gpulist * 1000
 
+def store_result(metric_q,file='/home/xiaoyifu/methylation/deepsignal/result.txt'):
+    #pre_list=[]
+    #label_list=[]
+    with open(file, 'w') as wf:
+        while True:
+            lines=metric_q.get()
+            if lines=='kill':
+                break
+            #pre_list.append(prediction)
+            #label_list.append(label)
+            for prediction,label in lines:
+                wf.write(prediction+'/t' +label+ "\n")
 
 def call_mods(args):
     print("[main]call_mods starts..")
     start = time.time()
-
+    metric_q=Queue()
     model_path = os.path.abspath(args.model_path)
     if not os.path.exists(model_path):
         raise ValueError("--model_path is not set right!")
@@ -550,10 +593,10 @@ def call_mods(args):
                                                                                      args.f5_batch_size,
                                                                                      args.positions)
         if use_cuda:
-            _call_mods_from_fast5s_gpu(motif_seqs, chrom2len, fast5s_q, len_fast5s, positions, model_path,
+            _call_mods_from_fast5s_gpu(metric_q,motif_seqs, chrom2len, fast5s_q, len_fast5s, positions, model_path,
                                        success_file, args)
         else:
-            _call_mods_from_fast5s_cpu2(motif_seqs, chrom2len, fast5s_q, len_fast5s, positions, model_path,
+            _call_mods_from_fast5s_cpu2(metric_q,motif_seqs, chrom2len, fast5s_q, len_fast5s, positions, model_path,
                                         success_file, args)
     else:
         # features_batch_q = mp.Queue()
@@ -587,7 +630,7 @@ def call_mods(args):
         gpulist = _get_gpus()
         gpuindex = 0
         for _ in range(nproc_dp):
-            p = mp.Process(target=_call_mods_q, args=(model_path, features_batch_q, pred_str_q,
+            p = mp.Process(target=_call_mods_q, args=(metric_q,model_path, features_batch_q, pred_str_q,
                                                       success_file, args, gpulist[gpuindex]))
             gpuindex += 1
             p.daemon = True
@@ -598,19 +641,53 @@ def call_mods(args):
         p_w = mp.Process(target=_write_predstr_to_file, args=(args.result_file, pred_str_q))
         p_w.daemon = True
         p_w.start()
-
+        #pre_list=[]
+        #label_list=[]
+        #w = mp.Process(target=store_result, args=(metric_q,))
+            #accuracy.append(acc)
+            #precision.append(pre)
+            #recall.append(rec)
+        #w.daemon = True
+        #w.start()
         for p in predstr_procs:
             p.join()
 
-        # print("finishing the write_process..")
+        print("finishing the write_process..")
         pred_str_q.put("kill")
+        #metric_q.put('kill')
 
         p_rf.join()
 
         p_w.join()
-
+        #w.join()
+    print('call mods finish!')
     if os.path.exists(success_file):
         os.remove(success_file)
+    #accuracy=[]
+    #precision=[]
+    #recall=[]
+    #print('begin caculate metric!')
+    #pre_list=[]
+    #label_list=[]
+    #with open('/home/xiaoyifu/methylation/deepsignal/result.txt', 'r') as rf:
+    #    for line in rf:
+    #        p,l=line.strip().split("\t")
+    #        pre_list.append(p)
+    #        label_list.append(l)
+    #while not metric_q.empty():
+    #    p,l=metric_q.get()
+    #    pre_list.append(p)
+    #    label_list.append(l)
+    #accuracy = metrics.accuracy_score(
+    #            y_true=label_list, y_pred=pre_list)
+    #precision = metrics.precision_score(
+    #            y_true=label_list, y_pred=pre_list
+    #        )
+    #recall = metrics.recall_score(y_true=label_list, y_pred=pre_list)
+    #accuracy = np.mean(accuracy) if len(accuracy) > 0 else 0
+    #precision = np.mean(precision) if len(precision) > 0 else 0
+    #recall = np.mean(recall) if len(recall) > 0 else 0
+    #print( "Accuracy: {:.4f}, Precision: {:.4f}, Recall: {:.4f}, ".format(accuracy,precision,recall))
     print("[main]call_mods costs %.2f seconds.." % (time.time() - start))
 
 
@@ -630,7 +707,8 @@ def main():
     p_call = parser.add_argument_group("CALL")
     p_call.add_argument("--model_path", "-m", action="store", type=str, required=True,
                         help="file path of the trained model (.ckpt)")
-
+    p_call.add_argument("--mode", type=int,default=2,
+                        help="deepsignal2 or deepsignal3")
     # model input
     p_call.add_argument('--model_type', type=str, default="both_bilstm",
                         choices=["both_bilstm", "seq_bilstm", "signal_bilstm"],

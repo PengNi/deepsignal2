@@ -7,6 +7,9 @@ prob_0, prob_1, called_label, seq
 
 from __future__ import absolute_import
 
+import sys
+sys.path.append("..")
+
 import torch
 import argparse
 import os
