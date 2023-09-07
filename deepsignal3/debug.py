@@ -66,4 +66,23 @@ def prepare_data(filename):
             line = fr.readline()
     print('pos {} : neg {}'.format(pos,neg))#pos 896804 : neg 0
 #prepare_data('/home/xiaoyifu/data/HG002/R9.4/fast5s.CG.features.tsv')
-prepare_data('/home/xiaoyifu/data/HG002/R9.4/samples_CG.hc_poses.r30m.tsv')
+#prepare_data('/home/xiaoyifu/data/HG002/R9.4/samples_CG.hc_poses.r30m.tsv')
+
+def statistic_R9(filename):
+    max=0
+    mean=0
+    sitenum=0
+    total=0
+    with open(filename, "r") as fr:
+        line = fr.readline()
+        while line:
+            kmer, k_signals, label=parse_a_line2(line)
+            sitenum+=1
+            count = sum(1 for row in k_signals for element in row if element == 0)
+            total+=count
+            if count>max:
+                max=count
+            line = fr.readline()
+    mean=total/sitenum
+    print('signal supplement 0 max: {}, mean: {}, total:{}'.format(max,mean,total))
+statistic_R9('/home/xiaoyifu/data/HG002/R9.4/fast5s.CG.features.tsv')
