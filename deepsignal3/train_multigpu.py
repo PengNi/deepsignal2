@@ -11,7 +11,7 @@ import re
 from tqdm import tqdm
 from dataloader import SignalFeaData2, clear_linecache
 import torch
-from model import CapsNet, CapsuleLoss
+from model import CapsNet, CapsuleLoss,CapsEmbeddingNet,MixModel
 from torch.utils.data import sampler
 import signal
 import logging
@@ -128,7 +128,7 @@ def train_worker(local_rank, global_world_size, args):
                         if model_regex.match(mfile):
                             os.remove(model_dir + "/" + mfile)
                 model_dir += "/"
-    model = CapsNet(device=local_rank)#
+    model = MixModel(device=local_rank)#
     dist.barrier()
     #if use_cuda:
     #    model = model.cuda(local_rank, non_blocking=True)
