@@ -515,23 +515,25 @@ class MixModel(nn.Module):
         self.sig_len = constants.SIG_LEN
         self.mode=mode
         # 定义位置编码器
-        if self.mode=='transformer':
-            self.positional_encoding = PositionalEncoding(embedding_size, dropout=0)
-            self.transformer = nn.Transformer(d_model=embedding_size, num_encoder_layers=6, 
+        self.positional_encoding = PositionalEncoding(embedding_size, dropout=0)
+        self.transformer = nn.Transformer(d_model=embedding_size, num_encoder_layers=6, 
                         num_decoder_layers=6, dim_feedforward=self.hlstm_size, batch_first=True)
-            self.transformer_fc = nn.Linear(self.sig_len, hlstm_size*2)
-            self.primary_layer = PrimaryCapsuleLayer(conv_in=constants.KMER_LEN,
-                                                 conv_out=primary_conv_out,conv_num=primary_conv,
-                                                 kernel_size=primary_kernel_size)
-        elif self.mode=='lstm':
-            self.lstm_seq = nn.LSTM(self.sig_len, self.hlstm_size, self.num_layers,
+        self.transformer_fc = nn.Linear(self.sig_len, hlstm_size*2)
+        self.primary_layer_t = PrimaryCapsuleLayer(conv_in=constants.KMER_LEN,
+                                                conv_out=primary_conv_out,conv_num=primary_conv,
+                                                kernel_size=primary_kernel_size)
+            
+        self.lstm_seq = nn.LSTM(self.sig_len, self.hlstm_size, self.num_layers,
                             dropout=dropout_rate, batch_first=True, bidirectional=True)
-            self.lstm_sig = nn.LSTM(self.sig_len, self.hlstm_size, self.num_layers,
+        self.lstm_sig = nn.LSTM(self.sig_len, self.hlstm_size, self.num_layers,
                             dropout=dropout_rate, batch_first=True, bidirectional=True)
-            self.primary_layer = PrimaryCapsuleLayer(conv_in=constants.KMER_LEN*2,
-                                                 conv_out=primary_conv_out,conv_num=primary_conv,
-                                                 kernel_size=primary_kernel_size)
-        
+        self.primary_layer_l = PrimaryCapsuleLayer(conv_in=constants.KMER_LEN*2,
+                                                conv_out=primary_conv_out,conv_num=primary_conv,
+                                                kernel_size=primary_kernel_size)
+            
+        self.capsmix_layer=PrimaryCapsuleLayer(conv_in=primary_conv_out*primary_conv*2,
+                                                conv_out=primary_conv_out,conv_num=primary_conv,
+                                                kernel_size=primary_kernel_size)
         self.caps_layer = CapsLayer(num_capsules=num_capsules,in_caps=primary_conv_out*primary_conv,
                                     in_channels=2*hlstm_size,out_channels=cap_output_num,device=self.device)
         self.dropout1 = nn.Dropout(p=dropout_rate)
@@ -559,7 +561,7 @@ class MixModel(nn.Module):
         key_padding_mask[tokens == 2] = -torch.inf
         return key_padding_mask
 
-    def forward(self, seq_emb, sig):
+    def forward(self, seq, sig):
         #seq_emb = self.embed(seq.long())#bacth_size, 17, 16
         #seq_emb = seq_emb.unsqueeze(-1)#seq_emb.reshape(seq_emb.shape[0], 1, -1)
         #sig = sig.unsqueeze(-1)#sig.reshape(sig.shape[0], 1, -1)
@@ -567,37 +569,39 @@ class MixModel(nn.Module):
         #print('sig shape: {}'.format(sig.shape))
         #batch_size=seq_emb.shape[0]
         #print(batch_size)
-        if self.mode=='transformer':
-            sig_mask = nn.Transformer.generate_square_subsequent_mask(sig.size()[-2]).cuda(self.device)
-            seq_key_padding_mask = None#CapsNet.get_key_padding_mask(seq).cuda(self.device)
-            sig_key_padding_mask = None#CapsNet.get_key_padding_mask(sig).cuda(self.device)
-            seq_emb = self.positional_encoding(seq_emb.to(torch.float32)).cuda(self.device)
-            sig_emb = self.positional_encoding(sig.to(torch.float32)).cuda(self.device)
-            #print('seq_emb shape: {}'.format(seq_emb.shape))
-            #print('sig_emb shape: {}'.format(sig_emb.shape))
-            x = self.transformer(seq_emb, sig_emb,
+        sig_mask = nn.Transformer.generate_square_subsequent_mask(sig.size()[-2]).cuda(self.device)
+        seq_key_padding_mask = None#CapsNet.get_key_padding_mask(seq).cuda(self.device)
+        sig_key_padding_mask = None#CapsNet.get_key_padding_mask(sig).cuda(self.device)
+        seq_emb_p = self.positional_encoding(seq.to(torch.float32)).cuda(self.device)
+        sig_emb_p = self.positional_encoding(sig.to(torch.float32)).cuda(self.device)
+        #print('seq_emb shape: {}'.format(seq_emb.shape))
+        #print('sig_emb shape: {}'.format(sig_emb.shape))
+        x_t = self.transformer(seq_emb_p, sig_emb_p,
                                tgt_mask=sig_mask,
                                src_key_padding_mask=seq_key_padding_mask,
                                tgt_key_padding_mask=sig_key_padding_mask).cuda(self.device)
-            x = self.transformer_fc(x)
+        x_t = self.transformer_fc(x_t)
+        x_t = self.primary_layer_t(x_t)    
         #print('transformer shape: {}'.format(x.shape))
-        elif self.mode=='lstm':
-            seq_emb,_=self.lstm_seq(seq_emb.to(torch.float32),self.init_hidden(seq_emb.size(0), self.num_layers,self.hlstm_size))
-            sig_emb,_=self.lstm_sig(sig.to(torch.float32),self.init_hidden(sig.size(0), self.num_layers,self.hlstm_size))
-            #batch_size,sig_len,2*self.hlstm_size
-            #print('seq_emb shape: {}'.format(seq_emb.shape))
-            #print('sig shape: {}'.format(sig.shape))
-            # to(torch.float32) solve RuntimeError:expected scalar type Double but found Float
-            x = torch.cat((seq_emb, sig_emb), dim=1).to(torch.float32)
-            #bach_size,kmer_len*2,self.hlstm_size*num_directions
-
-            #x,_ = self.lstm_comb(x,self.init_hidden(x.size(0), self.num_layers,self.hlstm_size))
+        seq_emb_l,_=self.lstm_seq(seq.to(torch.float32),self.init_hidden(seq.size(0), self.num_layers,self.hlstm_size))
+        sig_emb_l,_=self.lstm_sig(sig.to(torch.float32),self.init_hidden(sig.size(0), self.num_layers,self.hlstm_size))
+        #batch_size,sig_len,2*self.hlstm_size
+        #print('seq_emb shape: {}'.format(seq_emb.shape))
+        #print('sig shape: {}'.format(sig.shape))
+        # to(torch.float32) solve RuntimeError:expected scalar type Double but found Float
+        x_l = torch.cat((seq_emb_l, sig_emb_l), dim=1).to(torch.float32)
+        #bach_size,kmer_len*2,self.hlstm_size*num_directions
+            
+        
+        #x,_ = self.lstm_comb(x,self.init_hidden(x.size(0), self.num_layers,self.hlstm_size))
         
         # seq = self.primary_layer(seq)
         # seq = self.caps_layer(seq)
         # sig = self.primary_layer(sig)
         # sig = self.caps_layer(sig)
-        x = self.primary_layer(x)
+        x_l = self.primary_layer_l(x_l)
+        x = torch.cat((x_t, x_l), dim=1).to(torch.float32)
+        x=self.capsmix_layer(x)
         x = self.caps_layer(x)
         x=torch.reshape(x,(x.shape[0],-1))
         # x = self.dropout1(x)
