@@ -79,6 +79,13 @@ def parse_args():
         required=False,
         help="min epoch num, default 5",
     )
+    parser.add_argument(
+        "--stop-epoch",
+        default=2,
+        type=int,
+        required=False,
+        help="The indicator has not improved for several consecutive epochs. default 2",
+    )
     parser.add_argument('--optim_type', type=str, default="Adam", choices=["Adam", "RMSprop", "SGD",
                                                                                 "LookaheadAdam"],
                              required=False, help="type of optimizer to use, 'Adam', 'SGD', 'RMSprop', "

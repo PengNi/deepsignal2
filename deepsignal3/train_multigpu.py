@@ -11,7 +11,7 @@ import re
 from tqdm import tqdm
 from dataloader import SignalFeaData2, clear_linecache
 import torch
-from model import CapsNet, CapsuleLoss,CapsEmbeddingNet,MixModel
+from model import CapsNet, CapsuleLoss,CapsEmbeddingNet,MixModel,remoraNetwork,remoraNetworkLSTM,simpleTransformer
 from torch.utils.data import sampler
 import signal
 import logging
@@ -128,7 +128,7 @@ def train_worker(local_rank, global_world_size, args):
                         if model_regex.match(mfile):
                             os.remove(model_dir + "/" + mfile)
                 model_dir += "/"
-    model = MixModel(device=local_rank)#
+    model = simpleTransformer(device=local_rank)#
     dist.barrier()
     #if use_cuda:
     #    model = model.cuda(local_rank, non_blocking=True)
@@ -191,9 +191,10 @@ def train_worker(local_rank, global_world_size, args):
         #), 
         #on_trace_ready=torch.profiler.tensorboard_trace_handler('./log')#trace_handler
      #)
+    stop_flag=0
     for epoch in range(args.max_epoch_num):
         train_loader.sampler.set_epoch(epoch)
-        curr_best_accuracy_epoch = 0
+        
         no_best_model = True
         tlosses = []
         start = time.time()
@@ -208,9 +209,11 @@ def train_worker(local_rank, global_world_size, args):
             if use_cuda:
                 seq = seq.cuda(local_rank, non_blocking=True)
                 sig = sig.cuda(local_rank, non_blocking=True)
+                #mask = (sig != 0).cuda(local_rank, non_blocking=True)
                 labels = labels.cuda(local_rank, non_blocking=True)
             outputs, logits = model(seq, sig)
             loss = criterion(outputs, labels)
+            #loss = (loss * mask.float()).sum() / mask.sum()
             # print(loss)
             logger.debug(loss.detach().item())
             tlosses.append(loss.detach().item())
@@ -253,6 +256,7 @@ def train_worker(local_rank, global_world_size, args):
                 if use_cuda:
                     vseq = vseq.cuda(local_rank, non_blocking=True)
                     vsig = vsig.cuda(local_rank, non_blocking=True)
+                    #vmask = (vsig != 0).cuda(local_rank, non_blocking=True)
                     vlabels = vlabels.cuda(local_rank, non_blocking=True)
                 voutputs, vlogits = model(vseq, vsig)
                 vloss = criterion(voutputs, vlabels)
@@ -281,27 +285,30 @@ def train_worker(local_rank, global_world_size, args):
             #    data_iter.write("epoch: {}, iter: {}, ValidLoss: {}, \
             #        Accuracy: {}".format(epoch+1,i,np.mean(vlosses),v_accuracy))
                     
-            if v_accuracy > curr_best_accuracy_epoch:
-                curr_best_accuracy_epoch = v_accuracy
-                if curr_best_accuracy_epoch > curr_best_accuracy - 0.0002:
-                    #torch.save(
-                    #    #model.module.state_dict(),
-                    #    model.state_dict(),
-                    #    model_dir
-                    #    + args.target_chr + ".epoch{}.ckpt".format(
-                    #        epoch
-                    #    ),
-                    #)
-                    if global_rank == 0:
+            if v_accuracy >  curr_best_accuracy- 0.0002:
+                stop_flag=0
+                if global_rank == 0:
                         # model.state_dict() or model.module.state_dict()?
-                        torch.save(model.module.state_dict(),
-                            model_dir  + args.target_chr + ".epoch{}.ckpt".format(
-                            epoch+1
-                        ))
-                    if curr_best_accuracy_epoch > curr_best_accuracy:
-                        curr_best_accuracy = curr_best_accuracy_epoch
-                        curr_best_accuracy_loc = epoch + 1
-                        no_best_model = False
+                    torch.save(model.module.state_dict(),
+                        model_dir  + args.target_chr + ".epoch{}.ckpt".format(
+                        epoch+1
+                    ))
+                if v_accuracy > curr_best_accuracy:
+                    curr_best_accuracy = v_accuracy
+                    curr_best_accuracy_loc = epoch + 1
+                    no_best_model = False
+                #torch.save(
+                #    #model.module.state_dict(),
+                #    model.state_dict(),
+                #    model_dir
+                #    + args.target_chr + ".epoch{}.ckpt".format(
+                #        epoch
+                #    ),
+                #)
+                    
+                    
+            else:
+                stop_flag+=1
                 
             if global_rank == 0:
                     
@@ -318,7 +325,7 @@ def train_worker(local_rank, global_world_size, args):
                         v_accuracy,
                         v_precision,
                         v_recall,
-                        curr_best_accuracy_epoch,
+                        curr_best_accuracy,
                         time_cost,
                     )
                         
@@ -349,7 +356,7 @@ def train_worker(local_rank, global_world_size, args):
             scheduler.step(lr_reduce_metric)
         else:
             scheduler.step()
-        if no_best_model and epoch >= args.min_epoch_num - 1:
+        if no_best_model and epoch >= args.min_epoch_num - 1 and stop_flag>=args.stop_epoch:
             logger.info("early stop!")
             break
     endtime = time.time()  

@@ -407,7 +407,7 @@ class CapsNet(nn.Module):
         key_padding_mask[tokens == 2] = -torch.inf
         return key_padding_mask
 
-    def forward(self, seq_emb, sig):
+    def forward(self, seq_emb, sig,mask):
         #seq_emb = self.embed(seq.long())#bacth_size, 17, 16
         #seq_emb = seq_emb.unsqueeze(-1)#seq_emb.reshape(seq_emb.shape[0], 1, -1)
         #sig = sig.unsqueeze(-1)#sig.reshape(sig.shape[0], 1, -1)
@@ -415,6 +415,7 @@ class CapsNet(nn.Module):
         #print('sig shape: {}'.format(sig.shape))
         #batch_size=seq_emb.shape[0]
         #print(batch_size)
+        sig=sig * mask
         if self.mode=='transformer':
             sig_mask = nn.Transformer.generate_square_subsequent_mask(sig.size()[-2]).cuda(self.device)
             seq_key_padding_mask = None#CapsNet.get_key_padding_mask(seq).cuda(self.device)
@@ -604,6 +605,208 @@ class MixModel(nn.Module):
         x=self.capsmix_layer(x)
         x = self.caps_layer(x)
         x=torch.reshape(x,(x.shape[0],-1))
+        # x = self.dropout1(x)
+        x = self.fc1(x)
+        x = self.relu1(x)
+        # x = self.dropout2(x)
+        x = self.fc2(x)
+        # x = self.relu2(x)
+        # print(x.shape)
+        #x = x.squeeze(1)
+
+        return x, self.softmax(x)
+    
+class remoraNetwork(nn.Module):
+
+    def __init__(
+        self,
+        size=64,
+        kmer_len=17,
+        num_out=2,
+        device=0
+    ):
+        super().__init__()
+        self.device=device
+        self.sig_conv1 = nn.Conv1d(17, 4, 11)
+        self.sig_bn1 = nn.BatchNorm1d(4)
+        self.sig_conv2 = nn.Conv1d(4, 16, 5)
+        self.sig_bn2 = nn.BatchNorm1d(16)
+        self.sig_conv3 = nn.Conv1d(16, size, 1, 3)
+        self.sig_bn3 = nn.BatchNorm1d(size)
+
+        self.seq_conv1 = nn.Conv1d(17, 16, 11)
+        self.seq_bn1 = nn.BatchNorm1d(16)
+        self.seq_conv2 = nn.Conv1d(16, 32, 5)
+        self.seq_bn2 = nn.BatchNorm1d(32)
+        self.seq_conv3 = nn.Conv1d(32, size, 1, 3)
+        self.seq_bn3 = nn.BatchNorm1d(size)
+
+        self.merge_conv1 = nn.Conv1d(size * 2, size, 1)
+        self.merge_bn1 = nn.BatchNorm1d(size)
+        self.merge_conv2 = nn.Conv1d(size, size, 1)
+        self.merge_bn2 = nn.BatchNorm1d(size)
+
+        self.merge_conv3 = nn.Conv1d(size, size, 1, stride=2)
+        self.merge_bn3 = nn.BatchNorm1d(size)
+        self.merge_conv4 = nn.Conv1d(size, size, 1, stride=2)
+        self.merge_bn4 = nn.BatchNorm1d(size)
+
+        self.fc = nn.Linear(size , num_out)
+        self.softmax = nn.Softmax(1)
+
+    def forward(self, sigs, seqs):
+        sigs_x = swish(self.sig_bn1(self.sig_conv1(sigs.to(torch.float32)))).cuda(self.device)
+        sigs_x = swish(self.sig_bn2(self.sig_conv2(sigs_x)))
+        sigs_x = swish(self.sig_bn3(self.sig_conv3(sigs_x)))
+
+        seqs_x = swish(self.seq_bn1(self.seq_conv1(seqs.to(torch.float32)))).cuda(self.device)
+        seqs_x = swish(self.seq_bn2(self.seq_conv2(seqs_x)))
+        seqs_x = swish(self.seq_bn3(self.seq_conv3(seqs_x)))
+        z = torch.cat((sigs_x, seqs_x), 1)
+
+        z = swish(self.merge_bn1(self.merge_conv1(z)))
+        z = swish(self.merge_bn2(self.merge_conv2(z)))
+        z = swish(self.merge_bn3(self.merge_conv3(z)))
+        z = swish(self.merge_bn4(self.merge_conv4(z)))
+
+        z = torch.flatten(z, start_dim=1)
+        z = self.fc(z)
+
+        return z, self.softmax(z)
+    
+class remoraNetworkLSTM(nn.Module):
+
+    def __init__(
+        self,
+        size=64,
+        kmer_len=17,
+        num_out=2,
+        device=0
+    ):
+        super().__init__()
+        self.device=device
+        self.sig_conv1 = nn.Conv1d(17, 4, 5)
+        self.sig_bn1 = nn.BatchNorm1d(4)
+        self.sig_conv2 = nn.Conv1d(4, 16, 5)
+        self.sig_bn2 = nn.BatchNorm1d(16)
+        self.sig_conv3 = nn.Conv1d(16, size, 4, 3)
+        self.sig_bn3 = nn.BatchNorm1d(size)
+
+        self.seq_conv1 = nn.Conv1d(17, 16, 11)
+        self.seq_bn1 = nn.BatchNorm1d(16)
+        self.seq_conv2 = nn.Conv1d(16, size, 5)
+        self.seq_bn2 = nn.BatchNorm1d(size)
+
+        self.merge_conv1 = nn.Conv1d(size * 2, size, 1)
+        self.merge_bn1 = nn.BatchNorm1d(size)
+        self.lstm1 = nn.LSTM(size, size, 1)
+        self.lstm2 = nn.LSTM(size, size, 1)
+
+        self.fc = nn.Linear(size , num_out)
+        self.softmax = nn.Softmax(1)
+
+    def forward(self, sigs, seqs):
+        sigs_x = swish(self.sig_bn1(self.sig_conv1(sigs.to(torch.float32)))).cuda(self.device)
+        sigs_x = swish(self.sig_bn2(self.sig_conv2(sigs_x)))
+        sigs_x = swish(self.sig_bn3(self.sig_conv3(sigs_x)))
+
+        seqs_x = swish(self.seq_bn1(self.seq_conv1(seqs.to(torch.float32)))).cuda(self.device)
+        seqs_x = swish(self.seq_bn2(self.seq_conv2(seqs_x)))
+        #print('sig shape: {}'.format(sigs_x.shape))
+        #print('seq shape: {}'.format(seqs_x.shape))
+        z = torch.cat((sigs_x, seqs_x), 1)
+
+        z = swish(self.merge_bn1(self.merge_conv1(z)))
+        z = z.permute(2, 0, 1)
+        z = swish(self.lstm1(z)[0])
+        z = torch.flip(swish(self.lstm2(torch.flip(z, (0,)))[0]), (0,))
+
+        z = z[-1].permute(0, 1)
+        z = self.fc(z)
+
+        return z, self.softmax(z)
+    
+class simpleTransformer(nn.Module):
+    def __init__(self, 
+                 primary_conv=5,
+                 hidden_size=256, 
+                 primary_conv_out=4,
+                 primary_kernel_size=3,
+                 num_capsules=2, 
+                 cap_output_num=6, 
+                 vocab_size=constants.KMER_LEN,
+                 embedding_size=constants.SIG_LEN, 
+                 dropout_rate=0.5, 
+                 num_layers=3,
+                 hlstm_size=128,
+                 device=0,
+                 mode='lstm'):
+        super(simpleTransformer, self).__init__()
+        self.device=device
+        #self.embed = nn.Embedding(vocab_size, embedding_size)
+        self.hlstm_size=hlstm_size
+        self.num_layers=num_layers
+        self.sig_len = constants.SIG_LEN
+        self.mode=mode
+        # 定义位置编码器
+        self.positional_encoding = PositionalEncoding(embedding_size, dropout=0)
+        self.transformer_sig = nn.Transformer(d_model=embedding_size, num_encoder_layers=6, 
+                        num_decoder_layers=6, dim_feedforward=self.hlstm_size, batch_first=True,dropout=dropout_rate)
+        self.transformer_seq = nn.Transformer(d_model=embedding_size, num_encoder_layers=6, 
+                        num_decoder_layers=6, dim_feedforward=self.hlstm_size, batch_first=True,dropout=dropout_rate)
+        self.transformer_fc = nn.Linear(self.sig_len, hlstm_size*2)
+        self.dropout1 = nn.Dropout(p=dropout_rate)
+        self.fc1 = nn.Linear(4*constants.KMER_LEN*self.hlstm_size, hidden_size)  #
+        self.relu1 = nn.ReLU()
+        self.dropout2 = nn.Dropout(p=dropout_rate)
+        self.fc2 = nn.Linear(hidden_size, 2)
+        self.relu2 = nn.ReLU()
+        self.softmax = nn.Softmax(1)
+
+    @staticmethod
+    def get_key_padding_mask(tokens):
+        """
+        用于key_padding_mask
+        """
+        key_padding_mask = torch.zeros(tokens.size())
+        key_padding_mask[tokens == 2] = -torch.inf
+        return key_padding_mask
+
+    def forward(self, seq, sig):
+        #seq_emb = self.embed(seq.long())#bacth_size, 17, 16
+        #seq_emb = seq_emb.unsqueeze(-1)#seq_emb.reshape(seq_emb.shape[0], 1, -1)
+        #sig = sig.unsqueeze(-1)#sig.reshape(sig.shape[0], 1, -1)
+        #print('seq_emb shape: {}'.format(seq_emb.shape))
+        #print('sig shape: {}'.format(sig.shape))
+        #batch_size=seq_emb.shape[0]
+        #print(batch_size)
+        
+        seq_emb_p = self.positional_encoding(seq.to(torch.float32)).cuda(self.device)
+        sig_emb_p = self.positional_encoding(sig.to(torch.float32)).cuda(self.device)
+        #print('seq_emb shape: {}'.format(seq_emb.shape))
+        #print('sig_emb shape: {}'.format(sig_emb.shape))
+        tgt = sig_emb_p
+        x_sig = self.transformer_sig(sig_emb_p,tgt).cuda(self.device)
+        tgt = seq_emb_p
+        x_seq = self.transformer_seq(seq_emb_p,tgt).cuda(self.device)
+        x_l = torch.cat((x_sig, x_seq), dim=1).to(torch.float32)
+        x_t = self.transformer_fc(x_l)    
+        #print('transformer shape: {}'.format(x.shape))
+        #batch_size,sig_len,2*self.hlstm_size
+        #print('seq_emb shape: {}'.format(seq_emb.shape))
+        #print('sig shape: {}'.format(sig.shape))
+        # to(torch.float32) solve RuntimeError:expected scalar type Double but found Float
+        
+        #bach_size,kmer_len*2,self.hlstm_size*num_directions
+            
+        
+        #x,_ = self.lstm_comb(x,self.init_hidden(x.size(0), self.num_layers,self.hlstm_size))
+        
+        # seq = self.primary_layer(seq)
+        # seq = self.caps_layer(seq)
+        # sig = self.primary_layer(sig)
+        # sig = self.caps_layer(sig)
+        x=torch.reshape(x_t,(x_t.shape[0],-1))
         # x = self.dropout1(x)
         x = self.fc1(x)
         x = self.relu1(x)
