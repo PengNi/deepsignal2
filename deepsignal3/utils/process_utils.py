@@ -83,7 +83,7 @@ def generate_aligner_with_options(is_bwa, path_to_bwa, path_to_minimap2=None,
 log_fmt = '%(asctime)s - %(levelname)s - %(message)s'
 log_datefmt = "%Y-%m-%d %H:%M:%S"
 log_formatter = logging.Formatter(log_fmt, log_datefmt)
-LOG_FN = '/tmp/deepsignal-plant2.log'
+LOG_FN = '/tmp/deepsignal3.log'
 
 
 def get_logger(module="", level=logging.INFO):

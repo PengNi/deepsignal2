@@ -1,1 +1,1 @@
-"""deepsignal-plant utils"""
+"""deepsignal3 utils"""
