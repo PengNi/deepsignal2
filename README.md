@@ -48,8 +48,8 @@ The virtual environment can also be created by using [virtualenv](https://github
 #### 2. Install deepsignal3
 - After creating and activating the environment, download deepsignal3 (**lastest version**) from github:
 ```bash
-git clone https://github.com/PengNi/deepsignal3.git
-cd deepsignal3
+git clone https://github.com/PengNi/deepsignal2.git
+cd deepsignal2
 python setup.py install
 ```
 
