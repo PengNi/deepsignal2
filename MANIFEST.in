@@ -1,0 +1,4 @@
+include deepsignal3/utils/*
+include requirements.txt
+include README.rst
+include LICENSE
