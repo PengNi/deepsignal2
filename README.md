@@ -1,7 +1,7 @@
 # DeepSignal3
 
 
-## A deep-learning method for detecting methylation state from Oxford Nanopore pore-c reads.
+## A deep-learning method for detecting methylation state from Oxford Nanopore reads.
 
 #### For the VBZ compression issue
 Please try adding ont-vbz-hdf-plugin to your environment as follows when all fast5s failed in `tombo resquiggle` and/or `deepsignal3 call_mods`. Normally it will work after setting `HDF5_PLUGIN_PATH`:
@@ -66,29 +66,29 @@ pip install torch==1.11.0
 
 
 ## Quick start
-To call modifications, the raw fast5 files should be basecalled ([Guppy](https://nanoporetech.com/community)). Belows are commands to call 5mC in CG, CHG, and CHH contexts:
+To call modifications, the raw fast5 files should be basecalled ([Guppy](https://nanoporetech.com/community)(version <=6.2.1)). Belows are commands to call 5mC in CG, CHG, and CHH contexts:
 ```bash
+# Higher versions of Guppy no longer support the output format fast5
 # Download and unzip the example data and pre-trained models.
 # 1. guppy basecall using GPU
-guppy_basecaller -i fast5s/ -r -s fast5s_guppy --config dna_r9.4.1_450bps_hac_prom.cfg --device CUDA:0 --fast5_out
-
+guppy_basecaller -i fast5s/ -r -s fast5s_guppy --config dna_r10.4.1_e8.2_400bps_hac_prom.cfg --device CUDA:0 --fast5_out
 # 2. deepsignal3 call_mods
 # CG
-CUDA_VISIBLE_DEVICES=0 deepsignal3 call_mods --input_path fast5s_guppy --model_path *.ckpt --result_file fast5s.CG.call_mods.tsv --reference_path GCF_000001735.4_TAIR10.1_genomic.fna --motifs CG --nproc 30 --nproc_gpu 6
+CUDA_VISIBLE_DEVICES=0 deepsignal3 call_mods --input_path fast5s_guppy --model_path *.ckpt --result_file fast5s.CG.call_mods.tsv --reference_path chm13v2.0.fa --motifs CG --nproc 30 --nproc_gpu 6
 deepsignal3 call_freq --input_path fast5s.CG.call_mods.tsv --result_file fast5s.CG.call_mods.frequency.tsv
 ```
 
 
 ## Usage
 #### 1. Basecall and re-squiggle
-Before run deepsignal, the raw reads should be basecalled ([Guppy](https://nanoporetech.com/community)).
+Before run deepsignal, the raw reads should be basecalled ([Guppy](https://nanoporetech.com/community)(version <=6.2.1)).
 
 For the example data:
 ```bash
 # 1. basecall using GPU
-guppy_basecaller -i fast5s/ -r -s fast5s_guppy --config dna_r9.4.1_450bps_hac_prom.cfg --device CUDA:0 --fast5_out
+guppy_basecaller -i fast5s/ -r -s fast5s_guppy --config dna_r10.4.1_e8.2_400bps_hac_prom.cfg --device CUDA:0 --fast5_out
 # or using CPU
-guppy_basecaller -i fast5s/ -r -s fast5s_guppy --config dna_r9.4.1_450bps_hac_prom.cfg --fast5_out
+guppy_basecaller -i fast5s/ -r -s fast5s_guppy --config dna_r10.4.1_e8.2_400bps_hac_prom.cfg --fast5_out
 ```
 
 #### 2. alignment using BWA
@@ -99,7 +99,7 @@ Features of targeted sites can be extracted for training or testing.
 
 For the example data (deepsignal3 extracts 13-mer-seq and 13*15-signal features of each CpG motif in reads by default.:
 ```bash
-deepsignal3 extract -i fast5s_guppy --reference_path GCF_000001735.4_TAIR10.1_genomic.fna -o fast5s.CG.features.tsv --nproc 30 --motifs CG &
+deepsignal3 extract -i fast5s_guppy --reference_path chm13v2.0.fa -o fast5s.CG.features.tsv --nproc 30 --motifs CG &
 ```
 
 The extracted_features file is a tab-delimited text file in the following format:
@@ -125,10 +125,10 @@ For the example data:
 # call 5mCpGs for instance
 
 # extracted-feature file as input
-deepsignal3 call_mods --input_path fast5s.CG.features.tsv --model_path model.dp2.CG.arabnrice2-1_R9.4plus_tem.bn13_sn16.balance.both_bilstm.b13_s16_epoch6.ckpt --result_file fast5s.CG.call_mods.tsv --motifs CG --nproc 30 --nproc_gpu 6
+deepsignal3 call_mods --input_path fast5s.CG.features.tsv --model_path hg002.rmet0.95_0.05.r10.4.10x.CG.epoch8.ckpt --result_file fast5s.CG.call_mods.tsv --motifs CG --nproc 30 --nproc_gpu 6
 
 # fast5 files as input, use GPU
-CUDA_VISIBLE_DEVICES=0 deepsignal3 call_mods --input_path fast5s_guppy --model_path model.dp2.CG.arabnrice2-1_R9.4plus_tem.bn13_sn16.balance.both_bilstm.b13_s16_epoch6.ckpt --result_file fast5s.CG.call_mods.tsv --reference_path GCF_000001735.4_TAIR10.1_genomic.fna --motifs CG --nproc 30 --nproc_gpu 6
+CUDA_VISIBLE_DEVICES=0 deepsignal3 call_mods --input_path fast5s_guppy --model_path hg002.rmet0.95_0.05.r10.4.10x.CG.epoch8.ckpt --result_file fast5s.CG.call_mods.tsv --reference_path chm13v2.0.fa --motifs CG --nproc 30 --nproc_gpu 6
 ```
 
 The modification_call file is a tab-delimited text file in the following format:
