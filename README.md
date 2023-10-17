@@ -63,7 +63,8 @@ pip install torch==1.11.0
 
 
 ## Trained models
-
+Currently, we have trained the following models:
+   * hg002.rmet0.95_0.05.r10.4.10x.CG.epoch8.ckpt
 
 ## Quick start
 To call modifications, the raw fast5 files should be basecalled ([Guppy](https://nanoporetech.com/community)(version <=6.2.1)). Belows are commands to call 5mC in CG, CHG, and CHH contexts:
@@ -169,3 +170,24 @@ The modification_frequency file can be either saved in [bedMethyl](https://www.e
    - **modification_frequency**:    modification frequency
    - **k_mer**:   the kmer around the targeted base
 
+#### 6. train new models
+A new model can be trained as follows:
+```bash
+# need to split training samples to two independent datasets for training and validating
+# please use deepsignal2 train -h/--help for more details
+deepsignal3 train --train_file /path/to/train/file --valid_file /path/to/valid/file --model_dir /dir/to/save/the/new/model
+```
+## split data
+On the R10.4 data, we divided the HG002 dataset of cell 20221109_1654_5D_PAG68757_39c39833 into three parts, and used one of them for training.
+Select the site with high confidence. The two sites of the positive and negative chains satisfy cov>=5 & rmet>=0.95 at the same time, or satisfy cov>=5 & rmet<=0.05 at the same time. Then take these two sites as standard set site.
+```bash
+# generate positive and negative data
+# random select 15000000 lines and shuffle
+python scripts/randsel_file_rows.py --ori_filepath data/R10.4/20221109_1654_5D_PAG68757_39c39833/train1/samples_CG.hc_poses_positive.tsv --write_filepath data/R10.4/20221109_1654_5D_PAG68757_39c39833/train1/samples_CG.hc_poses_positive.15m.tsv --num_lines 15000000 --header false &
+python scripts/randsel_file_rows.py --ori_filepath data/R10.4/20221109_1654_5D_PAG68757_39c39833/train1/samples_CG.hc_poses_negative.tsv --write_filepath data/R10.4/20221109_1654_5D_PAG68757_39c39833/train1/samples_CG.hc_poses_negative.15m.tsv --num_lines 15000000 --header false &
+
+# generate train and valid dataset
+# train : valid = 99 : 1
+head -29700000 data/HG002/R10.4/20221109_1654_5D_PAG68757_39c39833/train1/samples_CG.hc_poses.30m.tsv > data/HG002/R10.4/20221109_1654_5D_PAG68757_39c39833/train1/samples_CG.hc_poses.30m.train.tsv
+tail -300000 data/HG002/R10.4/20221109_1654_5D_PAG68757_39c39833/train1/samples_CG.hc_poses.30m.tsv > data/HG002/R10.4/20221109_1654_5D_PAG68757_39c39833/train1/samples_CG.hc_poses.30m.valid.tsv 
+```
